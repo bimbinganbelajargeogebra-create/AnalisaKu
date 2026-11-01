@@ -1,0 +1,99 @@
+{
+  "entities": {
+    "InstitutionSettings": {
+      "title": "InstitutionSettings",
+      "description": "Pengaturan identitas lembaga, jadwal tes, dan rilis hasil asesmen",
+      "type": "object",
+      "properties": {
+        "institutionName": { "type": "string", "maxLength": 200 },
+        "address": { "type": "string", "maxLength": 500 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "isTestOpen": { "type": "boolean" },
+        "testScheduleMode": { "type": "string", "enum": ["unlimited", "scheduled"] },
+        "testStartDate": { "type": "string", "maxLength": 50 },
+        "testEndDate": { "type": "string", "maxLength": 50 },
+        "resultReleaseMode": { "type": "string", "enum": ["instant", "manual", "scheduled"] },
+        "resultReleaseDate": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["institutionName", "isTestOpen", "resultReleaseMode"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Profil dan akun kredensial peserta tes diagnostik",
+      "type": "object",
+      "properties": {
+        "regNumber": { "type": "string", "maxLength": 50 },
+        "fullName": { "type": "string", "maxLength": 150 },
+        "birthPlace": { "type": "string", "maxLength": 100 },
+        "birthDate": { "type": "string", "maxLength": 50 },
+        "schoolOrigin": { "type": "string", "maxLength": 150 },
+        "grade": { "type": "string", "maxLength": 50 },
+        "studentPhone": { "type": "string", "maxLength": 50 },
+        "parentPhone": { "type": "string", "maxLength": 50 },
+        "username": { "type": "string", "maxLength": 60 },
+        "password": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["registered", "in_progress", "submitted", "evaluated"] },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["regNumber", "fullName", "username", "password", "schoolOrigin", "status"]
+    },
+    "TestSubmission": {
+      "title": "TestSubmission",
+      "description": "Lembar jawaban dan rekaman pengerjaan tes peserta",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string", "maxLength": 100 },
+        "regNumber": { "type": "string", "maxLength": 50 },
+        "username": { "type": "string", "maxLength": 60 },
+        "fullName": { "type": "string", "maxLength": 150 },
+        "answers": { "type": "object" },
+        "dataConfirmed": { "type": "boolean" },
+        "submittedAt": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["pending", "analyzed"] }
+      },
+      "required": ["studentId", "regNumber", "answers", "dataConfirmed", "status"]
+    },
+    "TestResult": {
+      "title": "TestResult",
+      "description": "Hasil analisa diagnostik lengkap sesuai format laporan PDF",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string", "maxLength": 100 },
+        "regNumber": { "type": "string", "maxLength": 50 },
+        "fullName": { "type": "string", "maxLength": 150 },
+        "schoolOrigin": { "type": "string", "maxLength": 150 },
+        "grade": { "type": "string", "maxLength": 50 },
+        "iqScore": { "type": "number" },
+        "iqCategory": { "type": "string", "maxLength": 50 },
+        "multipleIntelligences": { "type": "object" },
+        "brainAnalysis": { "type": "object" },
+        "psychologyTrends": { "type": "object" },
+        "personalityTraits": { "type": "array" },
+        "recommendations": { "type": "object" },
+        "studyPrograms": { "type": "object" },
+        "isReleased": { "type": "boolean" },
+        "evaluatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["studentId", "regNumber", "fullName", "iqScore", "iqCategory", "isReleased"]
+    }
+  },
+  "firestore": {
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/InstitutionSettings" },
+      "description": "Pengaturan identitas lembaga dan kebijakan waktu tes"
+    },
+    "/students/{studentId}": {
+      "schema": { "$ref": "#/entities/Student" },
+      "description": "Data identitas dan kredensial siswa"
+    },
+    "/submissions/{submissionId}": {
+      "schema": { "$ref": "#/entities/TestSubmission" },
+      "description": "Pengumpulan jawaban tes diagnostik siswa"
+    },
+    "/results/{resultId}": {
+      "schema": { "$ref": "#/entities/TestResult" },
+      "description": "Hasil evaluasi tes diagnostik dan laporan psikologis"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Asesmen Diagnostik Siswa SMP & SMA",
+  "description": "Platform Tes Diagnostik Potensi Akademik, Kecerdasan Majemuk, Brain Analysis, dan Rekomendasi Minat Bakat Siswa SMP & SMA",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
