@@ -254,15 +254,17 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
               Distribusi Kecerdasan Majemuk
             </div>
 
-            <div className="space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="space-y-2.5 bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-200">
               {miList.map((mi) => (
-                <div key={mi.key} className="flex items-center gap-3 text-xs">
-                  <span className="w-36 font-semibold text-slate-800 shrink-0">{mi.label}</span>
-                  <div className="flex-1 bg-slate-200 h-3 rounded-full overflow-hidden">
+                <div key={mi.key} className="flex items-center gap-2 sm:gap-3 text-xs">
+                  <span className="w-28 sm:w-36 font-semibold text-slate-800 shrink-0 truncate text-[11px] sm:text-xs">
+                    {mi.label}
+                  </span>
+                  <div className="flex-1 bg-slate-200 h-2.5 sm:h-3 rounded-full overflow-hidden shadow-inner">
                     <div className={`${mi.color} h-full rounded-full transition-all duration-500`} style={{ width: `${mi.val}%` }} />
                   </div>
-                  <span className="w-16 text-right font-mono font-bold text-slate-900 shrink-0">
-                    {mi.val.toFixed(2)}%
+                  <span className="w-12 sm:w-16 text-right font-mono font-bold text-slate-900 shrink-0 text-[11px] sm:text-xs">
+                    {mi.val.toFixed(1)}%
                   </span>
                 </div>
               ))}
