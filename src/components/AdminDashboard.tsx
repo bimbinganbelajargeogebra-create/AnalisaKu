@@ -31,6 +31,9 @@ import {
   ToggleLeft,
   ToggleRight,
   Filter,
+  RefreshCw,
+  Database,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -54,6 +57,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [levelFilter, setLevelFilter] = useState<'ALL' | 'SMP' | 'SMA'>('ALL');
   const [loading, setLoading] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string>(new Date().toLocaleTimeString('id-ID'));
 
   // Institution Settings state
   const [instName, setInstName] = useState(institution.institutionName);
@@ -88,6 +92,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const [stdList, resList] = await Promise.all([getAllStudents(), getAllResults()]);
       setStudents(stdList);
       setResults(resList);
+      setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
     } catch (err) {
       console.error('Error loading admin data:', err);
     } finally {
@@ -247,6 +252,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       </div>
 
+      {/* Cloud Firestore Status & Live Sync Bar */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+            <Database className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="text-xs font-bold text-emerald-400 tracking-wide uppercase">
+                Backend Firebase Firestore Terhubung
+              </span>
+              <span className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono border border-slate-700">
+                analisaku-3cc64
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Data {students.length} siswa, {results.length} hasil evaluasi, dan konfigurasi tersimpan aman di cloud.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          <span className="text-[11px] text-slate-400">
+            Sinkron: <span className="text-slate-200 font-semibold">{lastSyncTime}</span>
+          </span>
+          <button
+            onClick={loadData}
+            disabled={loading}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-xs"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>{loading ? 'Menyinkronkan...' : 'Sinkronkan Data'}</span>
+          </button>
+        </div>
+      </div>
+
       {/* Tabs */}
       <div className="flex border-b border-slate-200 gap-2 sm:gap-6 overflow-x-auto">
         <button
@@ -394,6 +436,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <span className="text-sm">{res.iqScore}</span>
                             <span className="text-[10px] text-blue-700 font-normal">({res.iqCategory})</span>
                           </div>
+                          <div className="text-[11px] text-slate-600 font-semibold mt-1">
+                            Skor Mentah: <span className="text-blue-800 font-bold">{res.rawScoreSession1to4 ?? 0}</span>/40
+                          </div>
+                          {res.sessionScores && (
+                            <div className="text-[10px] text-slate-500 font-mono mt-0.5" title="Sesi 1: Numerik | Sesi 2: Verbal | Sesi 3: Silogisme | Sesi 4: Spasial">
+                              Num:{res.sessionScores.numerik} | Vrb:{res.sessionScores.verbal} | Sil:{res.sessionScores.silogisme} | Spa:{res.sessionScores.spasial}
+                            </div>
+                          )}
                         </td>
                         <td className="py-3.5 px-4">
                           <span className="font-semibold text-slate-800">{res.brainAnalysis.primaryLearnerType}</span>

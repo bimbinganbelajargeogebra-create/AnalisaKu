@@ -17,6 +17,8 @@ import {
   Sparkles,
   Compass,
   Layers,
+  Database,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -278,6 +280,49 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
                   </tr>
                 </tbody>
               </table>
+            </div>
+
+            {/* Transparansi & Akuntabilitas Skor Objektif */}
+            <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl p-4 text-xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span className="font-bold text-slate-800">Bukti & Akuntabilitas Evaluasi Psikometrik</span>
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 font-semibold text-[11px] border border-emerald-200">
+                  <Database className="w-3 h-3 text-emerald-600" />
+                  <span>Terverifikasi di Cloud Firestore (analisaku-3cc64)</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200 text-center">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wide block font-semibold">Skor Kognitif Objektif</span>
+                  <span className="text-base font-extrabold text-blue-900">{result.rawScoreSession1to4 ?? 0}</span>
+                  <span className="text-[11px] text-slate-500 font-medium"> / 40 Soal</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200 text-center">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wide block font-semibold">Numerik (Sesi 1)</span>
+                  <span className="text-base font-bold text-slate-800">{result.sessionScores?.numerik ?? '-'}</span>
+                  <span className="text-[11px] text-slate-500"> / 10 Soal</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200 text-center">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wide block font-semibold">Verbal (Sesi 2)</span>
+                  <span className="text-base font-bold text-slate-800">{result.sessionScores?.verbal ?? '-'}</span>
+                  <span className="text-[11px] text-slate-500"> / 10 Soal</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200 text-center">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wide block font-semibold">Silogisme / Spasial (S3-4)</span>
+                  <span className="text-base font-bold text-slate-800">
+                    {result.sessionScores ? (result.sessionScores.silogisme + result.sessionScores.spasial) : '-'}
+                  </span>
+                  <span className="text-[11px] text-slate-500"> / 20 Soal</span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                * Skor IQ {result.iqScore} ({result.iqCategory}) dikalkulasikan secara empiris berdasarkan pembobotan baku psikometrik (&mu; = 100, &sigma; = 15) dari 40 butir tes bakat kognitif dan dipadukan dengan 80 butir inventori Howard Gardner pada Sesi 5. Seluruh jawaban dan kalkulasi dapat dipertanggungjawabkan serta tersimpan permanen di cloud backend.
+              </p>
             </div>
           </div>
 

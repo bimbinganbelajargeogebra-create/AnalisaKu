@@ -299,6 +299,12 @@ export function evaluateSubmission(submission: TestSubmission): TestResult {
     schoolOrigin: submission.schoolOrigin,
     grade: submission.grade,
     rawScoreSession1to4: correctCount,
+    sessionScores: {
+      numerik: correctSesi1,
+      verbal: correctSesi2,
+      silogisme: correctSesi3,
+      spasial: correctSesi4,
+    },
     iqScore,
     iqCategory,
     iqCategoryRange,

@@ -112,6 +112,12 @@ export interface TestResult {
   schoolOrigin: string;
   grade: string;
   rawScoreSession1to4: number; // Max 40
+  sessionScores?: {
+    numerik: number;
+    verbal: number;
+    silogisme: number;
+    spasial: number;
+  };
   iqScore: number;
   iqCategory: 'Di bawah rata-rata' | 'Normal Bawah' | 'Normal' | 'Normal Atas' | 'Superior' | 'Di Atas Superior' | 'Jenius';
   iqCategoryRange: string;

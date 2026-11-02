@@ -105,8 +105,15 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
     }
   });
 
+  // Accountability & verification note under IQ table
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.2);
+  doc.setTextColor(100, 116, 139);
+  const rawNote = `* Skor Mentah Objektif: ${result.rawScoreSession1to4 ?? '-'} / 40 Soal (Numerik: ${result.sessionScores?.numerik ?? '-'}, Verbal: ${result.sessionScores?.verbal ?? '-'}, Silogisme/Spasial: ${result.sessionScores ? result.sessionScores.silogisme + result.sessionScores.spasial : '-'}) | Formula Distribusi Normal Baku (Mean=100, SD=15)`;
+  doc.text(rawNote, margin + 1, y + 14.8);
+
   // Distribusi Kecerdasan Majemuk
-  y += 16;
+  y += 17.5;
   doc.setFillColor(30, 58, 138);
   doc.rect(margin, y, contentWidth, 5, 'F');
   doc.setFont('helvetica', 'bold');
