@@ -386,6 +386,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <span>Telp: {institution.phone}</span>
           </div>
           <div className="flex items-center gap-4">
+            <span className="font-bold text-slate-700">@copyright Pak GuruAI</span>
+            <span className="text-slate-300">•</span>
             <button
               onClick={onAdminClick}
               className="text-slate-500 hover:text-indigo-600 font-medium cursor-pointer"

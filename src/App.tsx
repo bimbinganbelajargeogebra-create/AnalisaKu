@@ -216,6 +216,21 @@ export default function App() {
         )}
       </main>
 
+      {/* Global Application Footer */}
+      {view !== 'test' && (
+        <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+          <div className="max-w-7xl mx-auto px-4 space-y-1">
+            <p className="font-semibold text-slate-700">{institution.institutionName}</p>
+            <p className="text-[11px] text-slate-400">
+              {institution.address} • Telp: {institution.phone}
+            </p>
+            <p className="font-bold text-slate-700 pt-1 tracking-wide">
+              @copyright Pak GuruAI
+            </p>
+          </div>
+        </footer>
+      )}
+
       {/* Modals */}
       <StudentRegisterModal
         isOpen={isRegisterOpen}

@@ -1,5 +1,9 @@
 import { jsPDF } from 'jspdf';
 import { InstitutionSettings, TestResult } from '../types';
+import {
+  generateBrainLobeImageDataUrl,
+  generateHemispheresImageDataUrl,
+} from './brainDrawHelper';
 
 export function generateDiagnosticPdf(result: TestResult, institution: InstitutionSettings): jsPDF {
   const isSmp = result.educationLevel === 'SMP';
@@ -20,50 +24,50 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
   drawHeader(doc, 1, institution, isSmp ? 'SMP / MTs' : 'SMA / MA');
 
   // Student Identity Box
-  let y = 32;
+  let y = 26;
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(margin, y, contentWidth, 24, 2, 2, 'FD');
+  doc.roundedRect(margin, y, contentWidth, 22, 1.5, 1.5, 'FD');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(30, 41, 59);
 
-  doc.text('Nomor Registrasi :', margin + 6, y + 6);
+  doc.text('Nomor Registrasi :', margin + 6, y + 5.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(result.regNumber || '-', margin + 42, y + 6);
+  doc.text(result.regNumber || '-', margin + 38, y + 5.5);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Nama Siswa :', margin + 6, y + 11.5);
+  doc.text('Nama Siswa :', margin + 6, y + 10.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(result.fullName || '-', margin + 42, y + 11.5);
+  doc.text(result.fullName || '-', margin + 38, y + 10.5);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Jenjang / Kelas :', margin + 6, y + 17);
+  doc.text('Jenjang / Kelas :', margin + 6, y + 15.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(`${result.educationLevel || 'SMA'} - ${result.grade || ''}`, margin + 42, y + 17);
+  doc.text(`${result.educationLevel || 'SMA'} - ${result.grade || ''}`, margin + 38, y + 15.5);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Asal Sekolah :', margin + 100, y + 6);
+  doc.text('Asal Sekolah :', margin + 98, y + 5.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(result.schoolOrigin || '-', margin + 128, y + 6);
+  doc.text(result.schoolOrigin || '-', margin + 125, y + 5.5);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Tanggal Tes :', margin + 100, y + 11.5);
+  doc.text('Tanggal Tes :', margin + 98, y + 10.5);
   doc.setFont('helvetica', 'normal');
   const testDate = result.evaluatedAt ? new Date(result.evaluatedAt).toLocaleDateString('id-ID') : '-';
-  doc.text(testDate, margin + 128, y + 11.5);
+  doc.text(testDate, margin + 125, y + 10.5);
 
   // Intelegensia Umum (IQ)
-  y += 28;
+  y += 25;
   doc.setFillColor(30, 58, 138);
-  doc.rect(margin, y, contentWidth, 5.5, 'F');
+  doc.rect(margin, y, contentWidth, 5, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('Intelegensia Umum (IQ)', margin + 3, y + 4);
+  doc.text('Intelegensia Umum (IQ)', margin + 3, y + 3.6);
 
-  y += 5.5;
+  y += 5;
   const iqCategories = [
     { label: 'Di bawah rata-rata', range: '(<85)', min: 0, max: 84 },
     { label: 'Normal Bawah', range: '(85-99)', min: 85, max: 99 },
@@ -75,7 +79,7 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
   ];
 
   const colWidth = contentWidth / iqCategories.length;
-  doc.setFontSize(6.5);
+  doc.setFontSize(6);
   doc.setTextColor(15, 23, 42);
 
   iqCategories.forEach((cat, idx) => {
@@ -84,33 +88,33 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
 
     doc.setFillColor(isSelected ? 238 : 241, isSelected ? 242 : 245, isSelected ? 255 : 249);
     doc.setDrawColor(203, 213, 225);
-    doc.rect(colX, y, colWidth, 9, 'FD');
+    doc.rect(colX, y, colWidth, 8, 'FD');
 
     doc.setFont('helvetica', isSelected ? 'bold' : 'normal');
     const splitLabel = doc.splitTextToSize(cat.label, colWidth - 2);
-    doc.text(splitLabel, colX + colWidth / 2, y + 3.2, { align: 'center' });
-    doc.text(cat.range, colX + colWidth / 2, y + 7.5, { align: 'center' });
+    doc.text(splitLabel, colX + colWidth / 2, y + 2.8, { align: 'center' });
+    doc.text(cat.range, colX + colWidth / 2, y + 6.8, { align: 'center' });
 
     doc.setFillColor(isSelected ? 30 : 255, isSelected ? 58 : 255, isSelected ? 138 : 255);
-    doc.rect(colX, y + 9, colWidth, 6.5, 'FD');
+    doc.rect(colX, y + 8, colWidth, 5.5, 'FD');
     if (isSelected) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
+      doc.setFontSize(8);
       doc.setTextColor(255, 255, 255);
-      doc.text(String(result.iqScore), colX + colWidth / 2, y + 13.5, { align: 'center' });
+      doc.text(String(result.iqScore), colX + colWidth / 2, y + 12, { align: 'center' });
     }
   });
 
   // Distribusi Kecerdasan Majemuk
-  y += 20;
+  y += 16;
   doc.setFillColor(30, 58, 138);
-  doc.rect(margin, y, contentWidth, 5.5, 'F');
+  doc.rect(margin, y, contentWidth, 5, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('Distribusi Kecerdasan Majemuk', margin + 3, y + 4);
+  doc.text('Distribusi Kecerdasan Majemuk', margin + 3, y + 3.6);
 
-  y += 7.5;
+  y += 6.5;
   const miList = [
     { key: 'logikaMatematika', label: 'Logika Matematika', val: result.multipleIntelligences.logikaMatematika },
     { key: 'bahasa', label: 'Bahasa', val: result.multipleIntelligences.bahasa },
@@ -133,140 +137,154 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
     naturalis: 'Kemampuan memahami alam sekitar, kepekaan klasifikasi flora dan fauna, serta keterikatan mendalam dengan fenomena lingkungan.',
   };
 
-  const barStartX = margin + 38;
-  const barMaxWidth = 100;
+  const barStartX = margin + 34;
+  const barMaxWidth = 104;
 
   miList.forEach((mi) => {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
+    doc.setFontSize(6.8);
     doc.setTextColor(30, 41, 59);
-    doc.text(mi.label, margin + 2, y + 3);
+    doc.text(mi.label, margin + 2, y + 2.6);
 
     doc.setFillColor(241, 245, 249);
-    doc.roundedRect(barStartX, y, barMaxWidth, 3.5, 1, 1, 'F');
+    doc.roundedRect(barStartX, y, barMaxWidth, 3.2, 0.8, 0.8, 'F');
 
-    const fillW = Math.max(4, (mi.val / 100) * barMaxWidth);
+    const fillW = Math.max(3, (mi.val / 100) * barMaxWidth);
     doc.setFillColor(37, 99, 235);
-    doc.roundedRect(barStartX, y, fillW, 3.5, 1, 1, 'F');
+    doc.roundedRect(barStartX, y, fillW, 3.2, 0.8, 0.8, 'F');
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
     doc.setTextColor(15, 23, 42);
-    doc.text(`${mi.val.toFixed(2)}%`, barStartX + barMaxWidth + 4, y + 2.8);
+    doc.text(`${mi.val.toFixed(2)}%`, barStartX + barMaxWidth + 3.5, y + 2.5);
 
-    y += 4.5;
+    y += 3.8;
   });
 
-  y += 2;
+  y += 1.5;
   const colW = (contentWidth - 6) / 2;
   miList.forEach((mi, idx) => {
     const isCol2 = idx % 2 === 1;
     const curX = isCol2 ? margin + colW + 6 : margin;
-    const curY = y + Math.floor(idx / 2) * 9;
+    const curY = y + Math.floor(idx / 2) * 8.2;
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.5);
+    doc.setFontSize(6.2);
     doc.setTextColor(30, 58, 138);
     doc.text(mi.label, curX, curY);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(5.8);
+    doc.setFontSize(5.4);
     doc.setTextColor(71, 85, 105);
     const splitDesc = doc.splitTextToSize(miDescriptions[mi.key] || '', colW);
-    doc.text(splitDesc.slice(0, 2), curX, curY + 2.8);
+    doc.text(splitDesc.slice(0, 2), curX, curY + 2.6);
   });
 
-  // Brain Analysis Section
-  y = 188;
+  // Brain Analysis Section (With Anatomical Brain Lobe Image)
+  y = 143;
   doc.setFillColor(30, 58, 138);
-  doc.rect(margin, y, contentWidth, 5.5, 'F');
+  doc.rect(margin, y, contentWidth, 5, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('Brain Analysis & Gaya Belajar Dominan', margin + 3, y + 4);
+  doc.text('Brain Analysis & Gaya Belajar Dominan', margin + 3, y + 3.6);
 
-  y += 8;
+  y += 7.5;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
+  doc.setFontSize(6.8);
   doc.setTextColor(30, 41, 59);
   doc.text(
-    `Laporan ini menunjukkan bagian dominan, mengajak lebih memahami ciri-ciri intrinsik dan gaya belajar yang disukai ${result.fullName} :`,
+    `(a) Laporan ini menunjukkan bagian dominan, mengajak lebih memahami ciri-ciri intrinsik dan gaya belajar yang disukai ${result.fullName} :`,
     margin,
     y
   );
 
-  y += 4;
+  y += 3;
+  // Left: Rendered Anatomical Brain Lobe Image with Leader Lines & Percentages
+  try {
+    const brainImgData = generateBrainLobeImageDataUrl(result.brainAnalysis);
+    if (brainImgData) {
+      doc.addImage(brainImgData, 'PNG', margin + 1, y, 78, 47);
+    }
+  } catch (err) {
+    console.warn('Could not render brain lobe canvas in PDF:', err);
+  }
+
+  // Right: 4 Lobes Descriptive Text Table
+  const lobeX = margin + 82;
+  const lobeW = contentWidth - 82;
   const lobeData = [
     {
-      name: 'FRONTAL LOBE',
-      val: result.brainAnalysis.frontalLobe,
-      desc: 'Juga dikenal sebagai korteks motorik, bagian otak yang bertanggung jawab untuk penalaran, perencanaan, berbicara, gerakan, emosi, pemecahan masalah, keterampilan sosial dan moralitas.',
+      name: 'FRONTAL LOBE :',
+      pct: `${result.brainAnalysis.frontalLobe.toFixed(2)}%`,
+      desc: 'Juga dikenal sebagai korteks motorik, bagian otak yang bertanggung jawab untuk penalaran, perencanaan, berbicara, gerakan, emosi, pemecahan masalah, dan indera penciuman. keterampilan sosial dan moralitas.',
     },
     {
-      name: 'PARIETAL LOBE',
-      val: result.brainAnalysis.parietalLobe,
-      desc: 'Korteks somatosensori, bertanggung jawab atas bagaimana kita merasakan rangsangan sentuhan, tekanan fisik, suhu, dan rasa sakit kinestetik.',
+      name: 'PARIETAL LOBE :',
+      pct: `${result.brainAnalysis.parietalLobe.toFixed(2)}%`,
+      desc: 'Juga dikenal sebagai korteks somatosensori, bagian otak yang bertanggung jawab atas bagaimana kita merasakan rangsangan yang berbeda seperti sentuhan, tekanan, suhu, dan rasa sakit.',
     },
     {
-      name: 'OCCIPITAL LOBE',
-      val: result.brainAnalysis.occipitalLobe,
-      desc: 'Korteks visual, bagian otak yang terlibat aktif dalam mengamati, mengimajinasikan, dan menafsirkan informasi visual-spasial.',
+      name: 'OCCIPITAL LOBE :',
+      pct: `${result.brainAnalysis.occipitalLobe.toFixed(2)}%`,
+      desc: 'Juga dikenal sebagai korteks visual, bagian otak yang terlibat dalam mengamati, mengimajinasikan, dan menafsirkan informasi visual.',
     },
     {
-      name: 'TEMPORAL LOBE',
-      val: result.brainAnalysis.temporalLobe,
-      desc: 'Korteks pendengaran, bertanggung jawab untuk mengenali rangsangan pendengaran, bahasa yang didengar, melodi, dan irama bunyi.',
+      name: 'TEMPORAL LOBE :',
+      pct: `${result.brainAnalysis.temporalLobe.toFixed(2)}%`,
+      desc: 'Juga dikenal sebagai korteks pendengaran, bagian otak yang bertanggung jawab untuk merasakan dan mengenali interpretasi rangsangan pendengaran dan bahasa yang didengar.',
     },
   ];
 
+  let curLobeY = y + 1;
   lobeData.forEach((lobe) => {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.8);
+    doc.setFontSize(6.5);
     doc.setTextColor(30, 58, 138);
-    doc.text(`${lobe.name} (${lobe.val.toFixed(2)}%) :`, margin + 2, y + 3);
+    doc.text(lobe.name, lobeX, curLobeY);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6);
-    doc.setTextColor(71, 85, 105);
-    const splitLobeDesc = doc.splitTextToSize(lobe.desc, contentWidth - 48);
-    doc.text(splitLobeDesc, margin + 44, y + 3);
+    doc.setFontSize(5.6);
+    doc.setTextColor(51, 65, 85);
+    const splitLobe = doc.splitTextToSize(lobe.desc, lobeW);
+    doc.text(splitLobe, lobeX, curLobeY + 2.8);
 
-    y += 8;
+    curLobeY += 2.8 + splitLobe.length * 2.5 + 1.2;
   });
 
   // Kesimpulan Box Page 1
-  y += 1;
-  doc.setFillColor(241, 245, 249);
+  y = 202;
+  doc.setFillColor(248, 250, 252);
   doc.setDrawColor(203, 213, 225);
   doc.roundedRect(margin, y, contentWidth, 24, 1.5, 1.5, 'FD');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
+  doc.setFontSize(7.2);
   doc.setTextColor(30, 41, 59);
-  doc.text('Kesimpulan Analisa Otak & Gaya Belajar :', margin + 4, y + 4.5);
+  doc.text('Kesimpulan :', margin + 4, y + 4.2);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.8);
+  doc.setFontSize(6.4);
   doc.setTextColor(51, 65, 85);
   doc.text(
     `(1) Rating Frontal Lobe : (a) Objective Driven Model : ${result.brainAnalysis.objectiveDriven.toFixed(2)}%  (b) Concept Driven Model : ${result.brainAnalysis.conceptDriven.toFixed(2)}%`,
     margin + 4,
-    y + 9
+    y + 8.5
   );
-  doc.text(`(2) ${result.brainAnalysis.decisionOrientation}`, margin + 4, y + 13.5);
-  doc.text(`(3) ${result.brainAnalysis.determinationTrait}`, margin + 4, y + 18);
+  doc.text(`(2) ${result.brainAnalysis.decisionOrientation}`, margin + 4, y + 12.8);
+  doc.text(`(3) ${result.brainAnalysis.determinationTrait}`, margin + 4, y + 17.1);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 58, 138);
   doc.text(
     `(4) ${result.fullName} adalah pembelajar ${result.brainAnalysis.primaryLearnerType.toUpperCase()} (${
       result.brainAnalysis.primaryLearnerType === 'Tactile'
-        ? 'Kemampuan Belajar menggunakan Gerakan & Rasa Sentuh'
+        ? 'Kemampuan Belajar menggunakan Rasa Sentuh & Tindakan Fisik'
         : result.brainAnalysis.primaryLearnerType === 'Visual'
         ? 'Kemampuan Belajar menggunakan Pengamatan Visual & Gambar'
         : 'Kemampuan Belajar menggunakan Pendengaran & Audio'
     })`,
     margin + 4,
-    y + 22.5
+    y + 21.4
   );
 
   drawFooter(doc, 1, isSmp ? 2 : 3);
@@ -277,43 +295,44 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
   doc.addPage();
   drawHeader(doc, 2, institution, isSmp ? 'SMP / MTs' : 'SMA / MA');
 
-  y = 30;
+  y = 26;
   // Trend Dominasi Otak Kiri vs Kanan
   doc.setFillColor(30, 58, 138);
-  doc.rect(margin, y, contentWidth, 5.5, 'F');
+  doc.rect(margin, y, contentWidth, 5, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('Kecenderungan Psikologis Dominasi Belahan Otak', margin + 3, y + 4);
+  doc.text('Kecenderungan Psikologis Dominasi Belahan Otak', margin + 3, y + 3.6);
 
-  y += 8;
+  y += 7.5;
   const leftPct = result.psychologyTrends.leftBrainDominance;
   const rightPct = result.psychologyTrends.rightBrainDominance;
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setTextColor(30, 41, 59);
-  doc.text(`Trend Dominasi Otak Kiri (${leftPct.toFixed(2)}%)`, margin + 10, y);
-  doc.text(`Trend Dominasi Otak Kanan (${rightPct.toFixed(2)}%)`, margin + contentWidth - 65, y);
+  doc.text(`trend dominasi otak kiri (${leftPct.toFixed(2)}%)`, margin + 8, y);
+  doc.text(`trend dominasi otak kanan (${rightPct.toFixed(2)}%)`, margin + contentWidth - 68, y);
 
-  y += 3;
-  const midBarWidth = contentWidth - 20;
-  const leftW = (leftPct / 100) * midBarWidth;
-  const rightW = midBarWidth - leftW;
-  doc.setFillColor(37, 99, 235);
-  doc.roundedRect(margin + 10, y, leftW, 5, 1, 1, 'F');
-  doc.setFillColor(16, 185, 129);
-  doc.roundedRect(margin + 10 + leftW, y, rightW, 5, 1, 1, 'F');
+  // Center Hemispheres Drawing
+  try {
+    const hemiImg = generateHemispheresImageDataUrl(leftPct, rightPct);
+    if (hemiImg) {
+      doc.addImage(hemiImg, 'PNG', margin + contentWidth / 2 - 19, y - 4, 38, 19);
+    }
+  } catch (err) {
+    console.warn('Could not render hemisphere canvas:', err);
+  }
 
-  y += 7;
+  y += 18;
   const boxW = (contentWidth - 6) / 2;
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(226, 232, 240);
-  doc.rect(margin, y, boxW, 20, 'FD');
-  doc.rect(margin + boxW + 6, y, boxW, 20, 'FD');
+  doc.rect(margin, y, boxW, 18, 'FD');
+  doc.rect(margin + boxW + 6, y, boxW, 18, 'FD');
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5.8);
+  doc.setFontSize(5.5);
   doc.setTextColor(71, 85, 105);
   const leftTraits = [
     '• Berfikir secara sadar (consciousness)',
@@ -322,7 +341,7 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
     '• Memilah-milah & menganalisis terstruktur',
     '• Berfikir secara runtut & sistematis',
   ];
-  leftTraits.forEach((t, i) => doc.text(t, margin + 3, y + 4 + i * 3.5));
+  leftTraits.forEach((t, i) => doc.text(t, margin + 3, y + 3.5 + i * 3.2));
 
   const rightTraits = [
     '• Ketaksadaran (sub-consciousness)',
@@ -331,30 +350,30 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
     '• Melihat keseluruhan & sintesis ide',
     '• Spontan, bebas, senang bekerja kolaboratif',
   ];
-  rightTraits.forEach((t, i) => doc.text(t, margin + boxW + 9, y + 4 + i * 3.5));
+  rightTraits.forEach((t, i) => doc.text(t, margin + boxW + 9, y + 3.5 + i * 3.2));
 
   // Karakteristik Kepribadian (9 Points)
-  y += 24;
+  y += 21;
   doc.setFillColor(30, 58, 138);
-  doc.rect(margin, y, contentWidth, 5.5, 'F');
+  doc.rect(margin, y, contentWidth, 5, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('Karakteristik Kepribadian Utama', margin + 3, y + 4);
+  doc.text('Karakteristik Kepribadian Utama', margin + 3, y + 3.6);
 
-  y += 7.5;
+  y += 6.5;
   result.psychologyTrends.personalityTraits.forEach((trait, i) => {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.5);
+    doc.setFontSize(6.2);
     doc.setTextColor(30, 58, 138);
     doc.text(`(${i + 1})`, margin + 2, y);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.2);
+    doc.setFontSize(5.8);
     doc.setTextColor(51, 65, 85);
     const splitTrait = doc.splitTextToSize(trait, contentWidth - 10);
     doc.text(splitTrait, margin + 8, y);
-    y += splitTrait.length * 3.2 + 1;
+    y += splitTrait.length * 2.8 + 0.8;
   });
 
   // Saran Pengembangan
@@ -603,8 +622,11 @@ function drawFooter(doc: jsPDF, pageNum: number, totalPages: number) {
   doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(148, 163, 184);
-  doc.text(`${pageNum} | Hasil Tes Diagnostik Siswa`, margin, pageHeight - 8);
-  doc.text(`Dokumen Resmi Hasil Evaluasi (Hal ${pageNum} dari ${totalPages})`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+  doc.setFontSize(6.8);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`${pageNum} | Hasil Tes Diagnostik Siswa`, margin, pageHeight - 7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`@copyright Pak GuruAI`, pageWidth / 2, pageHeight - 7.5, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Dokumen Resmi (Hal ${pageNum} dari ${totalPages})`, pageWidth - margin, pageHeight - 7.5, { align: 'right' });
 }

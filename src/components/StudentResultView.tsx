@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { InstitutionSettings, TestResult } from '../types';
 import { generateDiagnosticPdf } from '../utils/pdfGenerator';
+import { BrainLobeDiagram, HemispheresDiagram } from './BrainLobeDiagram';
 import {
   Download,
   Brain,
@@ -15,6 +16,7 @@ import {
   GraduationCap,
   Sparkles,
   Compass,
+  Layers,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -40,6 +42,7 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
   isAdminViewing = false,
 }) => {
   const [downloading, setDownloading] = useState(false);
+  const [brainViewMode, setBrainViewMode] = useState<'diagram' | 'radar'>('diagram');
 
   if (!result) {
     return (
@@ -385,7 +388,30 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
           <div className="space-y-4">
             <div className="bg-blue-900 text-white px-3 py-1.5 rounded-t-lg font-bold text-xs uppercase tracking-wider flex items-center justify-between">
               <span>Brain Analysis</span>
-              <span className="text-[10px] font-normal text-blue-200">Hemisfer & Lobe Mapping</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setBrainViewMode('diagram')}
+                  className={`px-2.5 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                    brainViewMode === 'diagram'
+                      ? 'bg-white text-blue-950 shadow-xs'
+                      : 'text-blue-200 hover:text-white'
+                  }`}
+                >
+                  Gambar Anatomi Lobe Otak
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBrainViewMode('radar')}
+                  className={`px-2.5 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                    brainViewMode === 'radar'
+                      ? 'bg-white text-blue-950 shadow-xs'
+                      : 'text-blue-200 hover:text-white'
+                  }`}
+                >
+                  Radar Chart
+                </button>
+              </div>
             </div>
 
             <p className="text-xs text-slate-700">
@@ -393,130 +419,105 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
               <span className="font-bold text-slate-900">{result.fullName}</span> yaitu :
             </p>
 
-            {/* Radar Chart & 4 Lobes Description Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-              {/* Left: Recharts Radar Chart for Brain Lobes */}
-              <div className="lg:col-span-5 bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between shadow-2xs">
-                <div className="flex items-center justify-between mb-1">
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
-                    <Brain className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Radar 4 Lobus Otak</span>
-                  </h4>
-                  <span className="text-[10px] text-slate-500 font-semibold bg-white px-2 py-0.5 rounded border border-slate-200">
-                    Aktivitas (%)
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500 mb-2">
-                  Keseimbangan aktivitas antara korteks frontal, parietal, occipital, dan temporal.
-                </p>
+            {brainViewMode === 'diagram' ? (
+              /* Gambar Lobe Otak Sesuai Contoh Laporan Yang Diunggah */
+              <BrainLobeDiagram brainAnalysis={result.brainAnalysis} />
+            ) : (
+              /* Radar Chart View */
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+                <div className="lg:col-span-5 bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between shadow-2xs">
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                      <Brain className="w-3.5 h-3.5 text-sky-600" />
+                      <span>Radar 4 Lobus Otak</span>
+                    </h4>
+                    <span className="text-[10px] text-slate-500 font-semibold bg-white px-2 py-0.5 rounded border border-slate-200">
+                      Aktivitas (%)
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mb-2">
+                    Keseimbangan aktivitas antara korteks frontal, parietal, occipital, dan temporal.
+                  </p>
 
-                <div className="w-full h-64 sm:h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarBrainData}>
-                      <PolarGrid stroke="#cbd5e1" strokeDasharray="3 3" />
-                      <PolarAngleAxis
-                        dataKey="lobe"
-                        tick={{ fill: '#0f172a', fontSize: 11, fontWeight: 700 }}
-                      />
-                      <PolarRadiusAxis
-                        angle={45}
-                        domain={[0, 45]}
-                        tick={{ fill: '#64748b', fontSize: 9 }}
-                      />
-                      <Radar
-                        name="Aktivitas Lobus"
-                        dataKey="value"
-                        stroke="#0284c7"
-                        strokeWidth={2}
-                        fill="#38bdf8"
-                        fillOpacity={0.45}
-                      />
-                      <Tooltip
-                        formatter={(val: any) => [`${val}%`, 'Aktivitas']}
-                        contentStyle={{
-                          backgroundColor: '#0f172a',
-                          borderColor: '#334155',
-                          borderRadius: '0.75rem',
-                          color: '#fff',
-                          fontSize: '12px',
-                        }}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
+                  <div className="w-full h-64 sm:h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarBrainData}>
+                        <PolarGrid stroke="#cbd5e1" strokeDasharray="3 3" />
+                        <PolarAngleAxis
+                          dataKey="lobe"
+                          tick={{ fill: '#0f172a', fontSize: 11, fontWeight: 700 }}
+                        />
+                        <PolarRadiusAxis
+                          angle={45}
+                          domain={[0, 45]}
+                          tick={{ fill: '#64748b', fontSize: 9 }}
+                        />
+                        <Radar
+                          name="Aktivitas Lobus"
+                          dataKey="value"
+                          stroke="#0284c7"
+                          strokeWidth={2}
+                          fill="#38bdf8"
+                          fillOpacity={0.45}
+                        />
+                        <Tooltip
+                          formatter={(val: any) => [`${val}%`, 'Aktivitas']}
+                          contentStyle={{
+                            backgroundColor: '#0f172a',
+                            borderColor: '#334155',
+                            borderRadius: '0.75rem',
+                            color: '#fff',
+                            fontSize: '12px',
+                          }}
+                        />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
-              </div>
 
-              {/* Right: 4 Lobes Cards */}
-              <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 text-xs shadow-2xs flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-center font-bold text-slate-900 mb-1">
-                      <span className="text-blue-950 font-bold">FRONTAL LOBE</span>
-                      <span className="text-blue-900 font-mono font-bold bg-blue-100/70 px-2 py-0.5 rounded">
-                        {result.brainAnalysis.frontalLobe.toFixed(2)}%
-                      </span>
+                <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
+                    <div className="flex justify-between font-bold text-slate-900">
+                      <span>FRONTAL LOBE</span>
+                      <span className="text-blue-900 font-mono">({result.brainAnalysis.frontalLobe.toFixed(2)}%)</span>
                     </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                    <p className="text-[11px] text-slate-600">
                       Korteks motorik, bagian otak yang bertanggung jawab untuk penalaran, perencanaan, berbicara, gerakan, emosi, pemecahan masalah, keterampilan sosial dan moralitas.
                     </p>
                   </div>
-                  <div className="pt-1 text-[10px] font-semibold text-indigo-700">
-                    Fokus: Penalaran & Solusi
-                  </div>
-                </div>
 
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 text-xs shadow-2xs flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-center font-bold text-slate-900 mb-1">
-                      <span className="text-blue-950 font-bold">PARIETAL LOBE</span>
-                      <span className="text-blue-900 font-mono font-bold bg-blue-100/70 px-2 py-0.5 rounded">
-                        {result.brainAnalysis.parietalLobe.toFixed(2)}%
-                      </span>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
+                    <div className="flex justify-between font-bold text-slate-900">
+                      <span>PARIETAL LOBE</span>
+                      <span className="text-blue-900 font-mono">({result.brainAnalysis.parietalLobe.toFixed(2)}%)</span>
                     </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                    <p className="text-[11px] text-slate-600">
                       Korteks somatosensori, bagian otak yang bertanggung jawab atas bagaimana kita merasakan rangsangan yang berbeda seperti sentuhan, tekanan, suhu, dan rasa sakit.
                     </p>
                   </div>
-                  <div className="pt-1 text-[10px] font-semibold text-indigo-700">
-                    Fokus: Persepsi Sensori
-                  </div>
-                </div>
 
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 text-xs shadow-2xs flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-center font-bold text-slate-900 mb-1">
-                      <span className="text-blue-950 font-bold">OCCIPITAL LOBE</span>
-                      <span className="text-blue-900 font-mono font-bold bg-blue-100/70 px-2 py-0.5 rounded">
-                        {result.brainAnalysis.occipitalLobe.toFixed(2)}%
-                      </span>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
+                    <div className="flex justify-between font-bold text-slate-900">
+                      <span>OCCIPITAL LOBE</span>
+                      <span className="text-blue-900 font-mono">({result.brainAnalysis.occipitalLobe.toFixed(2)}%)</span>
                     </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                    <p className="text-[11px] text-slate-600">
                       Korteks visual, bagian otak yang terlibat dalam mengamati, mengimajinasikan, dan menafsirkan informasi visual.
                     </p>
                   </div>
-                  <div className="pt-1 text-[10px] font-semibold text-indigo-700">
-                    Fokus: Pemrosesan Visual
-                  </div>
-                </div>
 
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 text-xs shadow-2xs flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-center font-bold text-slate-900 mb-1">
-                      <span className="text-blue-950 font-bold">TEMPORAL LOBE</span>
-                      <span className="text-blue-900 font-mono font-bold bg-blue-100/70 px-2 py-0.5 rounded">
-                        {result.brainAnalysis.temporalLobe.toFixed(2)}%
-                      </span>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
+                    <div className="flex justify-between font-bold text-slate-900">
+                      <span>TEMPORAL LOBE</span>
+                      <span className="text-blue-900 font-mono">({result.brainAnalysis.temporalLobe.toFixed(2)}%)</span>
                     </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                    <p className="text-[11px] text-slate-600">
                       Korteks pendengaran, bagian otak yang bertanggung jawab untuk merasakan dan mengenali interpretasi rangsangan pendengaran dan bahasa yang didengar.
                     </p>
                   </div>
-                  <div className="pt-1 text-[10px] font-semibold text-indigo-700">
-                    Fokus: Auditori & Bahasa
-                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Kesimpulan */}
             <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-xl space-y-1.5 text-xs shadow-2xs">
@@ -535,6 +536,13 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
                   : 'Pendengaran, Audio & Diskusi Lisan'}
                 )
               </p>
+            </div>
+
+            {/* Halaman 1 Footer */}
+            <div className="border-t border-slate-200 pt-3 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 font-medium gap-2">
+              <span>1 | Hasil Tes Diagnostik Siswa</span>
+              <span className="font-bold text-slate-700">@copyright Pak GuruAI</span>
+              <span>Halaman 1 dari {isSmp ? 2 : 3}</span>
             </div>
           </div>
         </div>
@@ -555,20 +563,11 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
               (b) Dalam diri ditemukan kecenderungan psikologis dominasi belahan otak sebagai berikut :
             </p>
 
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div className="p-3 bg-blue-50/80 rounded-xl border border-blue-200 text-center">
-                <span className="font-bold text-blue-900 block">Trend Dominasi Otak Kiri</span>
-                <span className="text-lg font-extrabold text-blue-700 font-mono">
-                  {result.psychologyTrends.leftBrainDominance.toFixed(2)}%
-                </span>
-              </div>
-              <div className="p-3 bg-emerald-50/80 rounded-xl border border-emerald-200 text-center">
-                <span className="font-bold text-emerald-900 block">Trend Dominasi Otak Kanan</span>
-                <span className="text-lg font-extrabold text-emerald-700 font-mono">
-                  {result.psychologyTrends.rightBrainDominance.toFixed(2)}%
-                </span>
-              </div>
-            </div>
+            {/* Top-down Brain Hemispheres (Ki vs Ka) Diagram */}
+            <HemispheresDiagram
+              leftDominance={result.psychologyTrends.leftBrainDominance}
+              rightDominance={result.psychologyTrends.rightBrainDominance}
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-[11px] text-slate-600 pt-1">
               <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
@@ -672,6 +671,13 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
               </p>
             </div>
           )}
+
+          {/* Halaman 2 Footer */}
+          <div className="border-t border-slate-200 pt-3 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 font-medium gap-2">
+            <span>2 | Hasil Tes Diagnostik Siswa</span>
+            <span className="font-bold text-slate-700">@copyright Pak GuruAI</span>
+            <span>Halaman 2 dari {isSmp ? 2 : 3}</span>
+          </div>
         </div>
 
         {/* ========================================================= */}
@@ -725,6 +731,13 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
               <p>
                 Hasil tes diagnostik bisa berubah tergantung kemampuan testee belajar dan berinteraksi dengan lingkungannya.
               </p>
+            </div>
+
+            {/* Halaman 3 Footer */}
+            <div className="border-t border-slate-200 pt-3 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 font-medium gap-2">
+              <span>3 | Hasil Tes Diagnostik Siswa</span>
+              <span className="font-bold text-slate-700">@copyright Pak GuruAI</span>
+              <span>Halaman 3 dari 3</span>
             </div>
           </div>
         )}
