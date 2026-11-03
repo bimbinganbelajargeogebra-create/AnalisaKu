@@ -1400,10 +1400,17 @@ export const DIAGNOSTIC_QUESTIONS_SMP: Question[] = [
   { id: 120, session: 5, category: 'naturalis', text: 'Dalam kerja kelompok, saya lebih memilih mengatur dan mengelompokkan informasi dalam kategori-kategori tertentu sehingga mudah dimengerti.', options: LIKERT_OPTIONS, type: 'likert' },
 ];
 
+import { DIAGNOSTIC_QUESTIONS_SD, SESSIONS_INFO_SD } from './diagnosticQuestionsSd';
+export { DIAGNOSTIC_QUESTIONS_SD, SESSIONS_INFO_SD };
+
 export function getQuestionsForLevel(level: EducationLevel): Question[] {
-  return level === 'SMP' ? DIAGNOSTIC_QUESTIONS_SMP : DIAGNOSTIC_QUESTIONS_SMA;
+  if (level === 'SD') return DIAGNOSTIC_QUESTIONS_SD;
+  if (level === 'SMP') return DIAGNOSTIC_QUESTIONS_SMP;
+  return DIAGNOSTIC_QUESTIONS_SMA;
 }
 
 export function getSessionsForLevel(level: EducationLevel): SessionInfo[] {
-  return level === 'SMP' ? SESSIONS_INFO_SMP : SESSIONS_INFO_SMA;
+  if (level === 'SD') return SESSIONS_INFO_SD;
+  if (level === 'SMP') return SESSIONS_INFO_SMP;
+  return SESSIONS_INFO_SMA;
 }

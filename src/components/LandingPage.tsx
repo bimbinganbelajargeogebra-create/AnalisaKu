@@ -42,11 +42,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-100 text-indigo-800 text-xs font-semibold tracking-wide uppercase">
                 <Sparkles className="w-3.5 h-3.5" />
-                Asesmen Potensi & Diagnostik Jenjang SMP / MTs & SMA / MA / SMK
+                Asesmen Potensi & Diagnostik Jenjang SD / MI, SMP / MTs & SMA / MA / SMK
               </div>
 
               <h1 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight sm:leading-tight">
-                Kenali Potensi Akademik, Kecerdasan Majemuk & Dominasi Belajar Siswa SMP & SMA
+                Kenali Potensi Akademik, Kecerdasan Majemuk & Dominasi Belajar Siswa SD, SMP & SMA
               </h1>
 
               <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto lg:mx-0">
@@ -109,7 +109,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <p className="text-xs text-slate-500 font-medium">Waktu Terstruktur</p>
                 </div>
                 <div>
-                  <p className="text-xl sm:text-2xl font-bold text-slate-900">3 Halaman</p>
+                  <p className="text-xl sm:text-2xl font-bold text-slate-900">2 - 3 Hal</p>
                   <p className="text-xs text-slate-500 font-medium">Laporan Resmi PDF</p>
                 </div>
               </div>

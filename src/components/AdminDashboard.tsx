@@ -55,7 +55,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [students, setStudents] = useState<Student[]>([]);
   const [results, setResults] = useState<TestResult[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [levelFilter, setLevelFilter] = useState<'ALL' | 'SMP' | 'SMA'>('ALL');
+  const [levelFilter, setLevelFilter] = useState<'ALL' | 'SD' | 'SMP' | 'SMA'>('ALL');
   const [loading, setLoading] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>(new Date().toLocaleTimeString('id-ID'));
 
@@ -106,7 +106,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleLevelChangeAdmin = (lvl: EducationLevel) => {
     setNewLevel(lvl);
-    if (lvl === 'SMP') {
+    if (lvl === 'SD') {
+      setNewGrade('Kelas 5 SD (Kelas V)');
+    } else if (lvl === 'SMP') {
       setNewGrade('7 SMP (Kelas VII)');
     } else {
       setNewGrade('X (Sepuluh)');
@@ -236,7 +238,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
             <h1 className="text-xl sm:text-2xl font-bold">{institution.institutionName}</h1>
             <p className="text-xs sm:text-sm text-slate-300">
-              Kelola Pengaturan Lembaga, Batas Waktu Tes, Siswa (SMP & SMA), dan Analisis Hasil
+              Kelola Pengaturan Lembaga, Batas Waktu Tes, Siswa (SD, SMP & SMA), dan Analisis Hasil
             </p>
           </div>
         </div>
@@ -346,6 +348,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 Semua Jenjang
               </button>
               <button
+                onClick={() => setLevelFilter('SD')}
+                className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                  levelFilter === 'SD'
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+                }`}
+              >
+                SD / MI
+              </button>
+              <button
                 onClick={() => setLevelFilter('SMP')}
                 className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
                   levelFilter === 'SMP'
@@ -415,7 +427,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <td className="py-3.5 px-4">
                           <span
                             className={`inline-block px-2.5 py-1 rounded-md font-bold text-[10px] tracking-wide ${
-                              res.educationLevel === 'SMP'
+                              res.educationLevel === 'SD'
+                                ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                                : res.educationLevel === 'SMP'
                                 ? 'bg-indigo-100 text-indigo-900 border border-indigo-200'
                                 : 'bg-blue-100 text-blue-900 border border-blue-200'
                             }`}
@@ -546,7 +560,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <label className="block font-bold text-slate-700 mb-1.5 uppercase tracking-wider text-[11px]">
                     Pilih Jenjang Siswa *
                   </label>
-                  <div className="flex gap-4">
+                  <div className="flex flex-wrap gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="adminNewLevel"
+                        checked={newLevel === 'SD'}
+                        onChange={() => handleLevelChangeAdmin('SD')}
+                        className="text-amber-600"
+                      />
+                      <span className="font-semibold text-slate-800">SD / MI</span>
+                    </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="radio"
@@ -587,7 +611,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <input
                       type="text"
                       required
-                      placeholder="Contoh: SMP Budi Mulia / SMAN 1"
+                      placeholder={
+                        newLevel === 'SD'
+                          ? 'Contoh: SDN Menteng 01'
+                          : newLevel === 'SMP'
+                          ? 'Contoh: SMP Budi Mulia'
+                          : 'Contoh: SMAN 1 Jakarta'
+                      }
                       value={newSchoolOrigin}
                       onChange={(e) => setNewSchoolOrigin(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white outline-hidden focus:ring-2 focus:ring-indigo-500"
@@ -622,7 +652,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       onChange={(e) => setNewGrade(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white outline-hidden focus:ring-2 focus:ring-indigo-500"
                     >
-                      {newLevel === 'SMP' ? (
+                      {newLevel === 'SD' ? (
+                        <>
+                          <option value="Kelas 4 SD (Kelas IV)">Kelas 4 SD (Kelas IV)</option>
+                          <option value="Kelas 5 SD (Kelas V)">Kelas 5 SD (Kelas V)</option>
+                          <option value="Kelas 6 SD (Kelas VI)">Kelas 6 SD (Kelas VI)</option>
+                          <option value="Kelas 1-3 SD">Kelas 1-3 SD</option>
+                        </>
+                      ) : newLevel === 'SMP' ? (
                         <>
                           <option value="7 SMP (Kelas VII)">7 SMP (Kelas VII)</option>
                           <option value="8 SMP (Kelas VIII)">8 SMP (Kelas VIII)</option>
@@ -728,7 +765,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <td className="py-3.5 px-4">
                         <span
                           className={`inline-block px-2.5 py-1 rounded-md font-bold text-[10px] tracking-wide ${
-                            std.educationLevel === 'SMP'
+                            std.educationLevel === 'SD'
+                              ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                              : std.educationLevel === 'SMP'
                               ? 'bg-indigo-100 text-indigo-900 border border-indigo-200'
                               : 'bg-blue-100 text-blue-900 border border-blue-200'
                           }`}

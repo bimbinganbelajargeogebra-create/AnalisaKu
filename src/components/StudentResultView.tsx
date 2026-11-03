@@ -66,7 +66,10 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
     );
   }
 
+  const isSd = result.educationLevel === 'SD';
   const isSmp = result.educationLevel === 'SMP';
+  const is2Pages = isSd || isSmp;
+  const levelBadgeLabel = isSd ? 'SD / MI' : isSmp ? 'SMP / MTs' : 'SMA / MA / SMK';
 
   if (!result.isReleased && !isAdminViewing) {
     return (
@@ -194,7 +197,7 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
             className="w-full sm:w-auto px-5 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md shadow-blue-200 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
-            <span>{downloading ? 'Menyiapkan PDF...' : `Unduh Laporan PDF (${isSmp ? '2 Hal' : '3 Hal'})`}</span>
+            <span>{downloading ? 'Menyiapkan PDF...' : `Unduh Laporan PDF (${is2Pages ? '2 Hal' : '3 Hal'})`}</span>
           </button>
         </div>
       </div>
@@ -215,7 +218,7 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
               </h2>
             </div>
             <span className="text-xs text-blue-900 font-bold px-2 py-0.5 bg-blue-50 border border-blue-200 rounded">
-              Tingkat {isSmp ? 'SMP / MTs' : 'SMA / MA / SMK'}
+              Tingkat {levelBadgeLabel}
             </span>
           </div>
 
@@ -707,8 +710,8 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
             </div>
           </div>
 
-          {/* If SMP -> Show bottom note & seal here */}
-          {isSmp && (
+          {/* If SD or SMP -> Show bottom note & seal here */}
+          {is2Pages && (
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
               <p className="font-bold">Catatan :</p>
               <p>
@@ -721,14 +724,14 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
           <div className="border-t border-slate-200 pt-3 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 font-medium gap-2">
             <span>2 | Hasil Tes Diagnostik Siswa</span>
             <span className="font-bold text-slate-700">@copyright Pak GuruAI</span>
-            <span>Halaman 2 dari {isSmp ? 2 : 3}</span>
+            <span>Halaman 2 dari {is2Pages ? 2 : 3}</span>
           </div>
         </div>
 
         {/* ========================================================= */}
         {/* HALAMAN 3 DOKUMEN (SMA ONLY)                               */}
         {/* ========================================================= */}
-        {!isSmp && result.psychologyTrends.universityPrograms && (
+        {!is2Pages && result.psychologyTrends.universityPrograms && (
           <div className="p-6 sm:p-10 space-y-8">
             <div className="border-b-2 border-blue-900 pb-2">
               <span className="text-[11px] font-bold tracking-widest text-blue-900 uppercase">

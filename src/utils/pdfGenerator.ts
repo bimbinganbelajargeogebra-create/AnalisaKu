@@ -6,7 +6,10 @@ import {
 } from './brainDrawHelper';
 
 export function generateDiagnosticPdf(result: TestResult, institution: InstitutionSettings): jsPDF {
+  const isSd = result.educationLevel === 'SD';
   const isSmp = result.educationLevel === 'SMP';
+  const is2Pages = isSd || isSmp;
+  const levelHeaderLabel = isSd ? 'SD / MI' : isSmp ? 'SMP / MTs' : 'SMA / MA';
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -19,9 +22,9 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
   const contentWidth = pageWidth - margin * 2;
 
   // -------------------------------------------------------------
-  // PAGE 1 (Identical structure for SMP & SMA)
+  // PAGE 1 (Identical structure for SD, SMP & SMA)
   // -------------------------------------------------------------
-  drawHeader(doc, 1, institution, isSmp ? 'SMP / MTs' : 'SMA / MA');
+  drawHeader(doc, 1, institution, levelHeaderLabel);
 
   // Student Identity Box
   let y = 26;
@@ -294,13 +297,13 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
     y + 21.4
   );
 
-  drawFooter(doc, 1, isSmp ? 2 : 3);
+  drawFooter(doc, 1, is2Pages ? 2 : 3);
 
   // -------------------------------------------------------------
-  // PAGE 2 (Adapted for SMP vs SMA)
+  // PAGE 2 (Adapted for SD / SMP vs SMA)
   // -------------------------------------------------------------
   doc.addPage();
-  drawHeader(doc, 2, institution, isSmp ? 'SMP / MTs' : 'SMA / MA');
+  drawHeader(doc, 2, institution, levelHeaderLabel);
 
   y = 26;
   // Trend Dominasi Otak Kiri vs Kanan
@@ -463,8 +466,8 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
     y
   );
 
-  // If SMP -> Add bottom notes on Page 2 and seal
-  if (isSmp) {
+  // If SD or SMP -> Add bottom notes on Page 2 and seal (2 pages total)
+  if (is2Pages) {
     y += 9;
     doc.setFillColor(254, 243, 199);
     doc.setDrawColor(245, 158, 11);

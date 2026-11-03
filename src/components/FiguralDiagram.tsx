@@ -14,6 +14,69 @@ export const FiguralDiagram: React.FC<FiguralDiagramProps> = ({
   level = 'SMA',
   className = '',
 }) => {
+  // SD Level Questions 31 - 40
+  if (level === 'SD') {
+    if (!optionLabel) {
+      if (questionId >= 31 && questionId <= 35) {
+        // Balok Susun (Isometric Block Count)
+        return (
+          <div className={`p-4 bg-white rounded-xl border border-slate-200 shadow-xs inline-flex flex-col items-center gap-2 ${className}`}>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Susunan Balok Soal #{questionId}</span>
+            <div className="w-56 h-48 sm:w-64 sm:h-52 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-center p-2">
+              {renderSdGraphic(questionId, 'prompt')}
+            </div>
+            <p className="text-xs text-slate-500 italic text-center max-w-xs">
+              Hitung jumlah seluruh balok termasuk balok yang tertutup di bawahnya.
+            </p>
+          </div>
+        );
+      } else if (questionId >= 36 && questionId <= 38) {
+        // Mana yang berbeda polanya
+        return (
+          <div className={`p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 ${className}`}>
+            Perhatikan keempat pilihan gambar berikut dan pilih satu gambar yang polanya <span className="font-bold text-indigo-700">berbeda</span> dari lainnya:
+          </div>
+        );
+      } else {
+        // 39 - 40: Pola Urutan (Sequence Steps 1, 2, 3 -> ?)
+        return (
+          <div className={`p-4 bg-white rounded-xl border border-slate-200 shadow-xs overflow-x-auto ${className}`}>
+            <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">Pola Urutan Soal #{questionId}</p>
+            <div className="flex items-center gap-3">
+              {[1, 2, 3].map((step) => (
+                <div key={step} className="flex flex-col items-center">
+                  <div className="w-18 h-18 sm:w-20 sm:h-20 bg-slate-50 border-2 border-slate-300 rounded-lg flex items-center justify-center p-1.5">
+                    {renderSdGraphic(questionId, `step_${step}`)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 mt-1">Langkah {step}</span>
+                </div>
+              ))}
+              <div className="text-slate-400 font-bold text-lg">➔</div>
+              <div className="flex flex-col items-center">
+                <div className="w-18 h-18 sm:w-20 sm:h-20 bg-indigo-50 border-2 border-dashed border-indigo-400 rounded-lg flex items-center justify-center text-indigo-600 font-bold text-xl">
+                  ?
+                </div>
+                <span className="text-[10px] font-semibold text-indigo-600 mt-1">Pilihan</span>
+              </div>
+            </div>
+          </div>
+        );
+      }
+    }
+
+    // For options: 31-35 are text answers like "16 Balok", so no graphic needed
+    if (questionId >= 31 && questionId <= 35) {
+      return null;
+    }
+
+    // Options 36-40 have figural graphics
+    return (
+      <div className={`w-16 h-16 sm:w-20 sm:h-20 bg-white border border-slate-300 rounded-lg flex items-center justify-center p-2 group-hover:border-indigo-500 ${className}`}>
+        {renderSdGraphic(questionId, `opt_${optionLabel}`)}
+      </div>
+    );
+  }
+
   // SMP Level Questions 31 - 40
   if (level === 'SMP') {
     if (!optionLabel) {
@@ -589,4 +652,223 @@ function renderSmaGraphic(qId: number, key: string) {
     default:
       return null;
   }
+}
+
+// SD Level Graphic Renderer
+function renderSdGraphic(questionId: number, key: string): React.ReactNode {
+  // Questions 31-35: Isometric Block Stacking
+  if (questionId >= 31 && questionId <= 35) {
+    let blocks: Array<{ x: number; y: number; z: number }> = [];
+
+    if (questionId === 31) {
+      // 18 Blocks
+      // z=0: 3x3 = 9
+      for (let x = 0; x < 3; x++) for (let y = 0; y < 3; y++) blocks.push({ x, y, z: 0 });
+      // z=1: 2x3 = 6
+      for (let x = 0; x < 2; x++) for (let y = 0; y < 3; y++) blocks.push({ x, y, z: 1 });
+      // z=2: 1x3 = 3
+      for (let y = 0; y < 3; y++) blocks.push({ x: 0, y, z: 2 });
+    } else if (questionId === 32) {
+      // 16 Blocks
+      // z=0: 4x2 = 8
+      for (let x = 0; x < 4; x++) for (let y = 0; y < 2; y++) blocks.push({ x, y, z: 0 });
+      // z=1: 3x2 = 6
+      for (let x = 0; x < 3; x++) for (let y = 0; y < 2; y++) blocks.push({ x, y, z: 1 });
+      // z=2: 1x2 = 2
+      for (let y = 0; y < 2; y++) blocks.push({ x: 0, y, z: 2 });
+    } else if (questionId === 33) {
+      // 20 Blocks
+      // z=0: 10 blocks (3x4 minus 2)
+      for (let x = 0; x < 3; x++) {
+        for (let y = 0; y < 4; y++) {
+          if (!(x === 2 && (y === 0 || y === 3))) blocks.push({ x, y, z: 0 });
+        }
+      }
+      // z=1: 7 blocks
+      for (let x = 0; x < 2; x++) {
+        for (let y = 0; y < 4; y++) {
+          if (!(x === 1 && y === 3)) blocks.push({ x, y, z: 1 });
+        }
+      }
+      // z=2: 3 blocks
+      for (let y = 0; y < 3; y++) blocks.push({ x: 0, y, z: 2 });
+    } else if (questionId === 34) {
+      // 21 Blocks
+      // z=0: 4x3 = 12
+      for (let x = 0; x < 4; x++) for (let y = 0; y < 3; y++) blocks.push({ x, y, z: 0 });
+      // z=1: 2x3 = 6
+      for (let x = 0; x < 2; x++) for (let y = 0; y < 3; y++) blocks.push({ x, y, z: 1 });
+      // z=2: 1x3 = 3
+      for (let y = 0; y < 3; y++) blocks.push({ x: 0, y, z: 2 });
+    } else if (questionId === 35) {
+      // 26 Blocks
+      // z=0: 14 blocks
+      for (let x = 0; x < 4; x++) {
+        for (let y = 0; y < 4; y++) {
+          if (!(x === 3 && (y === 0 || y === 3))) blocks.push({ x, y, z: 0 });
+        }
+      }
+      // z=1: 3x3 = 9
+      for (let x = 0; x < 3; x++) for (let y = 0; y < 3; y++) blocks.push({ x, y, z: 1 });
+      // z=2: 1x3 = 3
+      for (let y = 0; y < 3; y++) blocks.push({ x: 0, y, z: 2 });
+    }
+
+    // Sort isometric blocks back-to-front, bottom-to-top
+    blocks.sort((a, b) => (a.x + a.y + a.z * 0.01) - (b.x + b.y + b.z * 0.01));
+
+    const s = 18;
+    const sX = s * 0.866;
+    const sY = s * 0.5;
+    const cx = 110;
+    const cy = 115;
+
+    return (
+      <svg viewBox="0 0 220 200" className="w-full h-full">
+        {blocks.map((b, idx) => {
+          const x0 = cx + (b.x - b.y) * sX;
+          const y0 = cy + (b.x + b.y) * sY - b.z * s * 1.05;
+
+          const topPoints = `${x0},${y0 - s} ${x0 + sX},${y0 - sY} ${x0},${y0} ${x0 - sX},${y0 - sY}`;
+          const leftPoints = `${x0 - sX},${y0 - sY} ${x0},${y0} ${x0},${y0 + s} ${x0 - sX},${y0 + sY}`;
+          const rightPoints = `${x0},${y0} ${x0 + sX},${y0 - sY} ${x0 + sX},${y0 + sY} ${x0},${y0 + s}`;
+
+          return (
+            <g key={idx}>
+              {/* Left face */}
+              <polygon points={leftPoints} fill="#94a3b8" stroke="#1e293b" strokeWidth="1.2" strokeLinejoin="round" />
+              {/* Right face */}
+              <polygon points={rightPoints} fill="#64748b" stroke="#1e293b" strokeWidth="1.2" strokeLinejoin="round" />
+              {/* Top face */}
+              <polygon points={topPoints} fill="#e2e8f0" stroke="#1e293b" strokeWidth="1.2" strokeLinejoin="round" />
+            </g>
+          );
+        })}
+      </svg>
+    );
+  }
+
+  // Question 36: Mana yang berbeda polanya
+  if (questionId === 36) {
+    const qMap: Record<string, { dots: Array<[number, number]> }> = {
+      opt_A: { dots: [[70, 30]] },
+      opt_B: { dots: [[30, 70]] },
+      opt_C: { dots: [[30, 30]] },
+      opt_D: { dots: [[30, 30], [70, 70]] }, // Different pattern!
+    };
+    const item = qMap[key] || { dots: [[50, 50]] };
+    return (
+      <svg viewBox="0 0 100 100" className="w-full h-full">
+        <circle cx="50" cy="50" r="40" fill="#f8fafc" stroke="#334155" strokeWidth="3" />
+        <line x1="50" y1="10" x2="50" y2="90" stroke="#cbd5e1" strokeWidth="2" strokeDasharray="3 3" />
+        <line x1="10" y1="50" x2="90" y2="50" stroke="#cbd5e1" strokeWidth="2" strokeDasharray="3 3" />
+        {item.dots.map(([dx, dy], i) => (
+          <circle key={i} cx={dx} cy={dy} r="8" fill="#4338ca" />
+        ))}
+      </svg>
+    );
+  }
+
+  // Question 37: Mana yang berbeda polanya
+  if (questionId === 37) {
+    const rotMap: Record<string, number> = {
+      opt_A: 0,
+      opt_B: 90,
+      opt_C: 225, // Different angle/pattern
+      opt_D: 270,
+    };
+    const rot = rotMap[key] ?? 0;
+    return (
+      <svg viewBox="0 0 100 100" className="w-full h-full">
+        <rect x="10" y="10" width="80" height="80" rx="8" fill="#f8fafc" stroke="#334155" strokeWidth="3" />
+        <g transform={`rotate(${rot} 50 50)`}>
+          <line x1="50" y1="70" x2="50" y2="25" stroke="#0f172a" strokeWidth="6" strokeLinecap="round" />
+          <polygon points="50,15 36,32 64,32" fill="#0f172a" />
+        </g>
+      </svg>
+    );
+  }
+
+  // Question 38: Mana yang berbeda polanya
+  if (questionId === 38) {
+    const shMap: Record<string, { sides: number; innerCount: number }> = {
+      opt_A: { sides: 3, innerCount: 1 },
+      opt_B: { sides: 4, innerCount: 1 },
+      opt_C: { sides: 5, innerCount: 1 },
+      opt_D: { sides: 4, innerCount: 3 }, // Different!
+    };
+    const it = shMap[key] || { sides: 4, innerCount: 1 };
+    return (
+      <svg viewBox="0 0 100 100" className="w-full h-full">
+        <rect x="8" y="8" width="84" height="84" rx="8" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="2" />
+        {it.sides === 3 && <polygon points="50,20 80,75 20,75" fill="none" stroke="#334155" strokeWidth="4" />}
+        {it.sides === 4 && <rect x="25" y="25" width="50" height="50" fill="none" stroke="#334155" strokeWidth="4" />}
+        {it.sides === 5 && <polygon points="50,18 80,40 70,78 30,78 20,40" fill="none" stroke="#334155" strokeWidth="4" />}
+        {it.innerCount === 1 ? (
+          <circle cx="50" cy="50" r="7" fill="#6366f1" />
+        ) : (
+          <g fill="#6366f1">
+            <circle cx="40" cy="40" r="5" />
+            <circle cx="60" cy="40" r="5" />
+            <circle cx="50" cy="60" r="5" />
+          </g>
+        )}
+      </svg>
+    );
+  }
+
+  // Question 39: Pola Urutan (Rotating needle: 12 -> 3 -> 6 -> 9)
+  if (questionId === 39) {
+    const angleMap: Record<string, number> = {
+      step_1: 0,
+      step_2: 90,
+      step_3: 180,
+      opt_A: 270, // Correct answer A
+      opt_B: 0,
+      opt_C: 135,
+      opt_D: 45,
+    };
+    const angle = angleMap[key] ?? 0;
+    return (
+      <svg viewBox="0 0 100 100" className="w-full h-full">
+        <circle cx="50" cy="50" r="40" fill="#f8fafc" stroke="#334155" strokeWidth="3" />
+        <circle cx="50" cy="50" r="5" fill="#334155" />
+        <g transform={`rotate(${angle} 50 50)`}>
+          <line x1="50" y1="50" x2="50" y2="20" stroke="#4f46e5" strokeWidth="5" strokeLinecap="round" />
+          <polygon points="50,15 44,24 56,24" fill="#4f46e5" />
+        </g>
+      </svg>
+    );
+  }
+
+  // Question 40: Pola Urutan (2x2 quadrant moving clockwise: TL -> TR -> BR -> BL)
+  if (questionId === 40) {
+    const fillMap: Record<string, number> = {
+      step_1: 0, // TL
+      step_2: 1, // TR
+      step_3: 2, // BR
+      opt_A: 3,  // BL (Correct)
+      opt_B: 0,
+      opt_C: 99, // All
+      opt_D: 1,
+    };
+    const quad = fillMap[key] ?? 0;
+    return (
+      <svg viewBox="0 0 100 100" className="w-full h-full">
+        <rect x="15" y="15" width="70" height="70" fill="#f8fafc" stroke="#334155" strokeWidth="3" />
+        <line x1="50" y1="15" x2="50" y2="85" stroke="#334155" strokeWidth="2" />
+        <line x1="15" y1="50" x2="85" y2="50" stroke="#334155" strokeWidth="2" />
+        {/* TL */}
+        <rect x="17" y="17" width="31" height="31" fill={quad === 0 || quad === 99 ? '#4f46e5' : 'transparent'} />
+        {/* TR */}
+        <rect x="52" y="17" width="31" height="31" fill={quad === 1 || quad === 99 ? '#4f46e5' : 'transparent'} />
+        {/* BR */}
+        <rect x="52" y="52" width="31" height="31" fill={quad === 2 || quad === 99 ? '#4f46e5' : 'transparent'} />
+        {/* BL */}
+        <rect x="17" y="52" width="31" height="31" fill={quad === 3 || quad === 99 ? '#4f46e5' : 'transparent'} />
+      </svg>
+    );
+  }
+
+  return null;
 }

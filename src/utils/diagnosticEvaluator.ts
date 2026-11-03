@@ -167,9 +167,21 @@ export function evaluateSubmission(submission: TestSubmission): TestResult {
   const leftBrainDominance = Math.round((leftBrainRaw / totalHemisphere) * 10000) / 100;
   const rightBrainDominance = Math.round((100 - leftBrainDominance) * 100) / 100;
 
-  // 5. Personality & Development points (tailored for SMP vs SMA)
+  // 5. Personality & Development points (tailored for SD vs SMP vs SMA)
   const personalityTraits =
-    level === 'SMP'
+    level === 'SD'
+      ? [
+          'sangat mampu menggunakan kata-kata secara efektif dalam membaca, menulis, berbicara, berfikir dan mengemukakan fikirannya.',
+          'mampu mengenali, melihat pola, mengkategorikan dan membuat ikatan emosi dengan alam, mengapresiasi dan memelihara alam.',
+          'cukup mampu mengartikulasikan cara kerja obyek dan ruang, menyukai representasi grafis, dan mampu membedakan bentuk secara rinci.',
+          'sangat butuh perangkat keras seperti buku, alat tulis, buku catatan, laptop atau tablet dan juga lingkungan yang memberi peluang dirinya untuk dialog, diskusi atau bercerita.',
+          'butuh hal-hal yang memberikannya kesempatan untuk berinteraksi dengan alam terbuka, merawat flora atau fauna, menjelajah, dsb.',
+          'cukup butuh hal-hal seperti seni, lego, video, film, slide, ilustrasi, gambar, grafik, informasi visual, dan bermain teka-teki visual.',
+          'sangat dipenuhi oleh keinginan untuk mengekspresikan sesuatu dalam bentuk tulisan, suka bercerita, membaca, dan bermain teka-teki silang.',
+          'dipenuhi oleh kecintaan pada keindahan alam, rasa ingin tahu tentang lingkungan, antusiasme merawat tanaman/hewan, dan kegiatan luar ruang.',
+          'cukup dipenuhi oleh imajinasi visual, suka menggambar, membayangkan bentuk, merancang karya kreatif, dan menyusun balok.',
+        ]
+      : level === 'SMP'
       ? [
           'sangat mampu menggunakan seluruh potensi jasmaninya untuk melakukan ekspresi gerak, mampu menggerakkan objek dengan gerakan yang dinamis, kompleks dan terukur.',
           'mampu memahami semua aspek yang berhubungan dengan kualitas suara beserta aspek emosionalnya, mampu bernyanyi, mendengar dan merangkai musik.',
@@ -194,7 +206,16 @@ export function evaluateSubmission(submission: TestSubmission): TestResult {
         ];
 
   const developmentRecommendations =
-    level === 'SMP'
+    level === 'SD'
+      ? {
+          priority1:
+            'Sangat disarankan, karena ini prioritas utama, membimbing anak untuk gemar membaca berbagai buku cerita/pengetahuan dan membiasakan mereka menulis buku harian atau pengalaman sehari-hari.',
+          priority2:
+            'Prioritas berikutnya, disarankan mendorong anak melakukan kegiatan luar ruang bersama keluarga, mengamati alam, memelihara tanaman/hewan peliharaan, serta membiasakan peduli lingkungan.',
+          priority3:
+            'Prioritas terakhir, disarankan membimbing anak untuk mengekspresikan gagasan lewat menggambar atau mewarnai, membuat bagan sederhana untuk mengingat materi, dan bermain teka-teki visual.',
+        }
+      : level === 'SMP'
       ? {
           priority1:
             'Sangat disarankan, karena ini prioritas utama, mendorong anak-anak berolahraga, berprakarya, mengembangkan hobinya. Belajar mengotak-atik mesin atau peralatan elektronik, membuat berbagai pernak-pernik, origami, clay, menjahit, merakit, dan sebagainya.',
@@ -219,12 +240,15 @@ export function evaluateSubmission(submission: TestSubmission): TestResult {
       ? 'Pembelajaran disarankan melalui pengamatan gambar, diagram, ilustrasi visual terstruktur, dan video. Mereka lebih mudah memahami konsep saat divisualisasikan secara jelas.'
       : 'Pembelajaran disarankan melalui diskusi lisan, tanya jawab interaktif, dan rekaman audio berirama. Mereka belajar optimal saat mendengarkan penjelasan runtut.';
 
-  const recommendedSeating = 'di tengah';
+  const recommendedSeating = level === 'SD' ? 'di belakang' : 'di tengah';
 
   const isSaintek = multipleIntelligences.logikaMatematika >= multipleIntelligences.bahasa;
-  const competitionRecommendation = isSaintek
-    ? 'IPA atau Sains dan Teknologi'
-    : 'Sosial Humaniora, Bahasa, atau Seni Kreatif';
+  const competitionRecommendation =
+    level === 'SD'
+      ? (isSaintek ? 'IPA / Matematika SD' : 'selain IPA/IPS')
+      : isSaintek
+      ? 'IPA atau Sains dan Teknologi'
+      : 'Sosial Humaniora, Bahasa, atau Seni Kreatif';
 
   const pdsScore =
     Math.round(

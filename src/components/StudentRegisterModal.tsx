@@ -33,7 +33,9 @@ export const StudentRegisterModal: React.FC<StudentRegisterModalProps> = ({
 
   const handleLevelChange = (newLevel: EducationLevel) => {
     setEducationLevel(newLevel);
-    if (newLevel === 'SMP') {
+    if (newLevel === 'SD') {
+      setGrade('Kelas 5 SD (Kelas V)');
+    } else if (newLevel === 'SMP') {
       setGrade('7 SMP (Kelas VII)');
     } else {
       setGrade('X (Sepuluh)');
@@ -124,9 +126,31 @@ export const StudentRegisterModal: React.FC<StudentRegisterModalProps> = ({
               Jenjang Pendidikan Peserta <span className="text-rose-500">*</span>
             </label>
             <p className="text-[11px] text-slate-500">
-              Pilihan jenjang ini akan secara otomatis menyesuaikan paket soal (SMP atau SMA) yang tampil saat tes.
+              Pilihan jenjang ini akan secara otomatis menyesuaikan paket soal (SD, SMP, atau SMA) yang tampil saat tes.
             </p>
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => handleLevelChange('SD')}
+                className={`p-3 rounded-xl border-2 flex items-center gap-3 transition cursor-pointer text-left ${
+                  educationLevel === 'SD'
+                    ? 'border-indigo-600 bg-indigo-50 text-indigo-950 font-bold'
+                    : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                }`}
+              >
+                <div
+                  className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                    educationLevel === 'SD' ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300'
+                  }`}
+                >
+                  {educationLevel === 'SD' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                </div>
+                <div>
+                  <span className="block text-xs sm:text-sm font-bold">Jenjang SD / MI</span>
+                  <span className="text-[10px] text-slate-500 font-normal">Soal terstandar tingkat SD</span>
+                </div>
+              </button>
+
               <button
                 type="button"
                 onClick={() => handleLevelChange('SMP')}
@@ -166,7 +190,7 @@ export const StudentRegisterModal: React.FC<StudentRegisterModalProps> = ({
                   {educationLevel === 'SMA' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                 </div>
                 <div>
-                  <span className="block text-xs sm:text-sm font-bold">Jenjang SMA / MA / SMK</span>
+                  <span className="block text-xs sm:text-sm font-bold">Jenjang SMA / MA</span>
                   <span className="text-[10px] text-slate-500 font-normal">Soal terstandar tingkat SMA</span>
                 </div>
               </button>
@@ -238,7 +262,13 @@ export const StudentRegisterModal: React.FC<StudentRegisterModalProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder={educationLevel === 'SMP' ? 'Contoh: SMP Budi Mulia' : 'Contoh: SMAN 1 Jakarta'}
+                    placeholder={
+                      educationLevel === 'SD'
+                        ? 'Contoh: SDN Menteng 01'
+                        : educationLevel === 'SMP'
+                        ? 'Contoh: SMP Budi Mulia'
+                        : 'Contoh: SMAN 1 Jakarta'
+                    }
                     value={schoolOrigin}
                     onChange={(e) => setSchoolOrigin(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden"
@@ -256,7 +286,14 @@ export const StudentRegisterModal: React.FC<StudentRegisterModalProps> = ({
                     onChange={(e) => setGrade(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-hidden bg-white"
                   >
-                    {educationLevel === 'SMP' ? (
+                    {educationLevel === 'SD' ? (
+                      <>
+                        <option value="Kelas 4 SD (Kelas IV)">Kelas 4 SD (Kelas IV)</option>
+                        <option value="Kelas 5 SD (Kelas V)">Kelas 5 SD (Kelas V)</option>
+                        <option value="Kelas 6 SD (Kelas VI)">Kelas 6 SD (Kelas VI)</option>
+                        <option value="Kelas 1-3 SD">Kelas 1-3 SD</option>
+                      </>
+                    ) : educationLevel === 'SMP' ? (
                       <>
                         <option value="7 SMP (Kelas VII)">7 SMP (Kelas VII)</option>
                         <option value="8 SMP (Kelas VIII)">8 SMP (Kelas VIII)</option>

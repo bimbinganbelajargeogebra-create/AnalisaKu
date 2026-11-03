@@ -1,4 +1,4 @@
-export type EducationLevel = 'SMP' | 'SMA';
+export type EducationLevel = 'SD' | 'SMP' | 'SMA';
 
 export interface Student {
   id?: string;
@@ -6,7 +6,7 @@ export interface Student {
   fullName: string;
   birthPlace: string;
   birthDate: string;
-  educationLevel: EducationLevel; // 'SMP' | 'SMA'
+  educationLevel: EducationLevel; // 'SD' | 'SMP' | 'SMA'
   schoolOrigin: string;
   grade: string;
   studentPhone: string;
