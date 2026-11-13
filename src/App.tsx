@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { InstitutionSettings, Student, TestResult, TestSubmission } from './types';
 import {
-  getInstitutionSettings,
   getStudentResult,
+  subscribeInstitutionSettings,
+  subscribeStudentResult,
   submitTestAnswers,
 } from './services/dbService';
 import { Navbar } from './components/Navbar';
@@ -36,35 +37,30 @@ export default function App() {
   const [isStudentLoginOpen, setIsStudentLoginOpen] = useState(false);
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
 
-  // Initial load
+  // Real-time Firestore listener for Institution Settings + Server Connectivity Check
   useEffect(() => {
-    async function init() {
-      await testConnection();
-      try {
-        const settings = await getInstitutionSettings();
-        setInstitution(settings);
-      } catch (err) {
-        console.warn('Init settings notice:', err);
-      }
-    }
-    init();
+    testConnection();
+
+    const unsubSettings = subscribeInstitutionSettings((settings) => {
+      setInstitution(settings);
+    });
+
+    return () => unsubSettings();
   }, []);
 
-  // Check student result when student changes
+  // Real-time Firestore listener for currently logged-in student's result
   useEffect(() => {
-    async function fetchResult() {
-      if (currentStudent) {
-        try {
-          const res = await getStudentResult(currentStudent.id || currentStudent.username);
-          setCurrentResult(res);
-        } catch (err) {
-          console.warn('Error fetching student result:', err);
-        }
-      } else {
-        setCurrentResult(null);
-      }
+    if (!currentStudent) {
+      setCurrentResult(null);
+      return;
     }
-    fetchResult();
+
+    const studentKey = currentStudent.id || currentStudent.username;
+    const unsubResult = subscribeStudentResult(studentKey, (res) => {
+      setCurrentResult(res);
+    });
+
+    return () => unsubResult();
   }, [currentStudent]);
 
   // Handlers

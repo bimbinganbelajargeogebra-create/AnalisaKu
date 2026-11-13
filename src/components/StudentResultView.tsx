@@ -590,7 +590,7 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
             <div className="border-t border-slate-200 pt-3 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 font-medium gap-2">
               <span>1 | Hasil Tes Diagnostik Siswa</span>
               <span className="font-bold text-slate-700">@copyright Pak GuruAI</span>
-              <span>Halaman 1 dari {isSmp ? 2 : 3}</span>
+              <span>Halaman 1 dari {is2Pages ? 2 : 3}</span>
             </div>
           </div>
         </div>

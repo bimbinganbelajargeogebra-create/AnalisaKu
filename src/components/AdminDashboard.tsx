@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { EducationLevel, InstitutionSettings, Student, TestResult } from '../types';
 import {
+  FirebaseSyncStatus,
   getAllStudents,
   getAllResults,
+  subscribeAllStudents,
+  subscribeAllResults,
   updateInstitutionSettings,
   registerStudent,
   deleteStudent,
   toggleResultRelease,
 } from '../services/dbService';
+import { testConnection } from '../firebase';
 import { generateDiagnosticPdf } from '../utils/pdfGenerator';
 import {
   Shield,
@@ -57,6 +61,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [levelFilter, setLevelFilter] = useState<'ALL' | 'SD' | 'SMP' | 'SMA'>('ALL');
   const [loading, setLoading] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<FirebaseSyncStatus>('connecting');
   const [lastSyncTime, setLastSyncTime] = useState<string>(new Date().toLocaleTimeString('id-ID'));
 
   // Institution Settings state
@@ -86,22 +91,63 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [addStudentError, setAddStudentError] = useState<string | null>(null);
 
+  // Sync settings inputs if real-time institution doc updates
+  useEffect(() => {
+    setInstName(institution.institutionName);
+    setInstAddress(institution.address);
+    setInstPhone(institution.phone);
+    setInstEmail(institution.email || '');
+    setIsTestOpen(institution.isTestOpen);
+    setTestScheduleMode(institution.testScheduleMode);
+    setTestStartDate(institution.testStartDate || '');
+    setTestEndDate(institution.testEndDate || '');
+    setResultReleaseMode(institution.resultReleaseMode);
+    setResultReleaseDate(institution.resultReleaseDate || '');
+  }, [institution]);
+
   const loadData = async () => {
     setLoading(true);
     try {
+      const ok = await testConnection();
       const [stdList, resList] = await Promise.all([getAllStudents(), getAllResults()]);
       setStudents(stdList);
       setResults(resList);
+      setSyncStatus(ok ? 'live' : 'cache');
       setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
     } catch (err) {
       console.error('Error loading admin data:', err);
+      setSyncStatus('error');
     } finally {
       setLoading(false);
     }
   };
 
+  // Real-time Firestore listeners for students & results
   useEffect(() => {
-    loadData();
+    const unsubStudents = subscribeAllStudents(
+      (list) => {
+        setStudents(list);
+        setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
+      },
+      (status) => {
+        setSyncStatus(status);
+      }
+    );
+
+    const unsubResults = subscribeAllResults(
+      (list) => {
+        setResults(list);
+        setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
+      },
+      (status) => {
+        setSyncStatus(status);
+      }
+    );
+
+    return () => {
+      unsubStudents();
+      unsubResults();
+    };
   }, []);
 
   const handleLevelChangeAdmin = (lvl: EducationLevel) => {
@@ -262,16 +308,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="text-xs font-bold text-emerald-400 tracking-wide uppercase">
-                Backend Firebase Firestore Terhubung
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${
+                  syncStatus === 'live'
+                    ? 'bg-emerald-400 animate-pulse'
+                    : syncStatus === 'connecting'
+                    ? 'bg-sky-400 animate-pulse'
+                    : 'bg-amber-400'
+                }`}
+              ></span>
+              <span
+                className={`text-xs font-bold tracking-wide uppercase ${
+                  syncStatus === 'live'
+                    ? 'text-emerald-400'
+                    : syncStatus === 'connecting'
+                    ? 'text-sky-400'
+                    : 'text-amber-400'
+                }`}
+              >
+                {syncStatus === 'live'
+                  ? 'Terhubung Real-Time ke Firebase Cloud Firestore'
+                  : syncStatus === 'connecting'
+                  ? 'Menghubungkan ke Firebase Firestore...'
+                  : 'Mode Sinkronisasi Cache Lokal (Offline/Tertunda)'}
               </span>
               <span className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono border border-slate-700">
                 analisaku-3cc64
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Data {students.length} siswa, {results.length} hasil evaluasi, dan konfigurasi tersimpan aman di cloud.
+              Pembaruan {students.length} siswa, {results.length} hasil evaluasi, dan pengaturan lembaga tersinkronisasi otomatis secara real-time.
             </p>
           </div>
         </div>
@@ -525,7 +591,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Daftar Akun Siswa (SMP & SMA)</h2>
+              <h2 className="text-base font-bold text-slate-900">Daftar Akun Siswa (SD, SMP & SMA)</h2>
               <p className="text-xs text-slate-500">
                 Admin dapat mendaftarkan siswa secara langsung agar dapat segera memulai tes
               </p>
@@ -958,7 +1024,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div>
                     <span className="block text-sm">Dapat Langsung Digunakan (Bebas Jadwal)</span>
                     <span className="font-normal text-slate-500 text-[11px]">
-                      Siswa SMP & SMA dapat langsung mengerjakan tes kapan saja tanpa batasan tanggal buka-tutup.
+                      Siswa SD, SMP & SMA dapat langsung mengerjakan tes kapan saja tanpa batasan tanggal buka-tutup.
                     </span>
                   </div>
                 </label>

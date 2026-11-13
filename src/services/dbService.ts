@@ -4,12 +4,13 @@ import {
   getDoc,
   getDocs,
   setDoc,
-  updateDoc,
   deleteDoc,
   query,
   where,
+  onSnapshot,
+  Unsubscribe,
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db } from '../firebase';
 import {
   InstitutionSettings,
   Student,
@@ -17,6 +18,8 @@ import {
   TestSubmission,
 } from '../types';
 import { evaluateSubmission } from '../utils/diagnosticEvaluator';
+
+export type FirebaseSyncStatus = 'connecting' | 'live' | 'cache' | 'error';
 
 const DEFAULT_SETTINGS: InstitutionSettings = {
   institutionName: 'Lembaga Asesmen & Diagnostik Potensi Siswa',
@@ -35,7 +38,7 @@ const LOCAL_STORAGE_KEY_STUDENTS = 'diagnostic_app_students';
 const LOCAL_STORAGE_KEY_SUBMISSIONS = 'diagnostic_app_submissions';
 const LOCAL_STORAGE_KEY_RESULTS = 'diagnostic_app_results';
 
-// Local storage helpers for instantaneous resilience
+// Local storage helpers for instantaneous offline resilience
 function getLocal<T>(key: string, defaultVal: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -53,9 +56,23 @@ function setLocal<T>(key: string, val: T): void {
   }
 }
 
-// 1. SETTINGS OPERATIONS
+// Strip undefined keys because Firestore rejects `undefined` values
+function sanitizeForFirestore<T extends Record<string, any>>(obj: T): T {
+  const clean: Record<string, any> = {};
+  Object.keys(obj).forEach((k) => {
+    const val = obj[k];
+    if (val === undefined) return;
+    if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+      clean[k] = sanitizeForFirestore(val);
+    } else {
+      clean[k] = val;
+    }
+  });
+  return clean as T;
+}
+
+// 1. SETTINGS OPERATIONS & REAL-TIME SUBSCRIPTION
 export async function getInstitutionSettings(): Promise<InstitutionSettings> {
-  const path = 'settings/institution';
   try {
     const docRef = doc(db, 'settings', 'institution');
     const snap = await getDoc(docRef);
@@ -64,8 +81,7 @@ export async function getInstitutionSettings(): Promise<InstitutionSettings> {
       setLocal(LOCAL_STORAGE_KEY_SETTINGS, data);
       return data;
     } else {
-      // Initialize default
-      await setDoc(docRef, DEFAULT_SETTINGS);
+      await setDoc(docRef, sanitizeForFirestore(DEFAULT_SETTINGS));
       setLocal(LOCAL_STORAGE_KEY_SETTINGS, DEFAULT_SETTINGS);
       return DEFAULT_SETTINGS;
     }
@@ -75,49 +91,98 @@ export async function getInstitutionSettings(): Promise<InstitutionSettings> {
   }
 }
 
-export async function updateInstitutionSettings(settings: Partial<InstitutionSettings>): Promise<InstitutionSettings> {
-  const path = 'settings/institution';
+export function subscribeInstitutionSettings(
+  onData: (settings: InstitutionSettings) => void,
+  onStatus?: (status: FirebaseSyncStatus, errorMsg?: string) => void
+): Unsubscribe {
+  const docRef = doc(db, 'settings', 'institution');
+  onStatus?.('connecting');
+
+  return onSnapshot(
+    docRef,
+    { includeMetadataChanges: true },
+    async (snap) => {
+      const status: FirebaseSyncStatus = snap.metadata.fromCache ? 'cache' : 'live';
+      onStatus?.(status);
+
+      if (snap.exists()) {
+        const data = snap.data() as InstitutionSettings;
+        setLocal(LOCAL_STORAGE_KEY_SETTINGS, data);
+        onData(data);
+      } else {
+        try {
+          await setDoc(docRef, sanitizeForFirestore(DEFAULT_SETTINGS));
+          setLocal(LOCAL_STORAGE_KEY_SETTINGS, DEFAULT_SETTINGS);
+          onData(DEFAULT_SETTINGS);
+        } catch (err) {
+          console.warn('Could not initialize default settings in Firestore:', err);
+          onData(getLocal(LOCAL_STORAGE_KEY_SETTINGS, DEFAULT_SETTINGS));
+        }
+      }
+    },
+    (error) => {
+      console.error('Firestore settings subscription error:', error);
+      onStatus?.('error', error.message);
+      onData(getLocal(LOCAL_STORAGE_KEY_SETTINGS, DEFAULT_SETTINGS));
+    }
+  );
+}
+
+export async function updateInstitutionSettings(
+  settings: Partial<InstitutionSettings>
+): Promise<InstitutionSettings> {
   const current = await getInstitutionSettings();
-  const updated: InstitutionSettings = {
+  const updated: InstitutionSettings = sanitizeForFirestore({
     ...current,
     ...settings,
     updatedAt: new Date().toISOString(),
-  };
+  });
 
   setLocal(LOCAL_STORAGE_KEY_SETTINGS, updated);
-
-  try {
-    await setDoc(doc(db, 'settings', 'institution'), updated, { merge: true });
-  } catch (error) {
-    console.warn('Saved settings locally, Firestore sync pending:', error);
-  }
+  await setDoc(doc(db, 'settings', 'institution'), updated, { merge: true });
 
   return updated;
 }
 
-// 2. STUDENT OPERATIONS
-export async function registerStudent(studentData: Omit<Student, 'id' | 'regNumber' | 'createdAt' | 'status'>): Promise<Student> {
+// 2. STUDENT OPERATIONS & REAL-TIME SUBSCRIPTION
+export async function registerStudent(
+  studentData: Omit<Student, 'id' | 'regNumber' | 'createdAt' | 'status'>
+): Promise<Student> {
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
   const regNumber = `${dateStr}${randomSuffix}`;
+  const normUsername = studentData.username.trim().toLowerCase();
 
-  const newStudent: Student = {
-    ...studentData,
-    regNumber,
-    status: 'registered',
-    createdAt: new Date().toISOString(),
-  };
+  // Check username uniqueness in Firestore first
+  try {
+    const q = query(collection(db, 'students'), where('username', '==', normUsername));
+    const existingSnap = await getDocs(q);
+    if (!existingSnap.empty) {
+      throw new Error(`Username '${normUsername}' sudah terdaftar. Silakan pilih username lain.`);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('sudah terdaftar')) {
+      throw err;
+    }
+    console.warn('Firestore username check fallback to local:', err);
+  }
 
-  // Local sync
+  // Also check local cache
   const localStudents = getLocal<Student[]>(LOCAL_STORAGE_KEY_STUDENTS, []);
-  // Check username uniqueness
-  const exists = localStudents.find((s) => s.username.toLowerCase() === newStudent.username.toLowerCase());
-  if (exists) {
-    throw new Error(`Username '${newStudent.username}' sudah terdaftar. Silakan pilih username lain.`);
+  const existsLocally = localStudents.find((s) => s.username.toLowerCase() === normUsername);
+  if (existsLocally) {
+    throw new Error(`Username '${normUsername}' sudah terdaftar. Silakan pilih username lain.`);
   }
 
   const studentId = `std_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  newStudent.id = studentId;
+  const newStudent: Student = sanitizeForFirestore({
+    ...studentData,
+    id: studentId,
+    username: normUsername,
+    regNumber,
+    status: 'registered',
+    createdAt: new Date().toISOString(),
+  });
 
   localStudents.push(newStudent);
   setLocal(LOCAL_STORAGE_KEY_STUDENTS, localStudents);
@@ -135,19 +200,30 @@ export async function loginStudent(username: string, password: string): Promise<
   const normUser = username.trim().toLowerCase();
   const normPass = password.trim();
 
-  // Try Firestore first
+  // Check Firestore first
   try {
     const q = query(collection(db, 'students'), where('username', '==', normUser));
     const snap = await getDocs(q);
     if (!snap.empty) {
-      const match = snap.docs[0].data() as Student;
+      const docSnap = snap.docs[0];
+      const match = docSnap.data() as Student;
       if (match.password === normPass) {
-        match.id = snap.docs[0].id;
+        match.id = docSnap.id;
+        // Keep local cache in sync
+        const localList = getLocal<Student[]>(LOCAL_STORAGE_KEY_STUDENTS, []);
+        const idx = localList.findIndex((s) => s.id === match.id || s.username.toLowerCase() === normUser);
+        if (idx >= 0) {
+          localList[idx] = match;
+        } else {
+          localList.push(match);
+        }
+        setLocal(LOCAL_STORAGE_KEY_STUDENTS, localList);
         return match;
       }
+      return null;
     }
   } catch (error) {
-    console.warn('Firestore query fallback to local check:', error);
+    console.warn('Firestore login query fallback to local check:', error);
   }
 
   // Fallback to local
@@ -163,49 +239,81 @@ export async function getAllStudents(): Promise<Student[]> {
     snap.forEach((d) => {
       list.push({ id: d.id, ...(d.data() as Student) });
     });
-    if (list.length > 0) {
-      setLocal(LOCAL_STORAGE_KEY_STUDENTS, list);
-      return list;
-    }
+    list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    setLocal(LOCAL_STORAGE_KEY_STUDENTS, list);
+    return list;
   } catch (error) {
     console.warn('Fallback to local students list:', error);
+    return getLocal<Student[]>(LOCAL_STORAGE_KEY_STUDENTS, []);
   }
-  return getLocal<Student[]>(LOCAL_STORAGE_KEY_STUDENTS, []);
+}
+
+export function subscribeAllStudents(
+  onData: (students: Student[]) => void,
+  onStatus?: (status: FirebaseSyncStatus, errorMsg?: string) => void
+): Unsubscribe {
+  onStatus?.('connecting');
+  return onSnapshot(
+    collection(db, 'students'),
+    { includeMetadataChanges: true },
+    (snap) => {
+      const status: FirebaseSyncStatus = snap.metadata.fromCache ? 'cache' : 'live';
+      onStatus?.(status);
+
+      const list: Student[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...(d.data() as Student) });
+      });
+      list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      setLocal(LOCAL_STORAGE_KEY_STUDENTS, list);
+      onData(list);
+    },
+    (error) => {
+      console.error('Firestore students subscription error:', error);
+      onStatus?.('error', error.message);
+      onData(getLocal<Student[]>(LOCAL_STORAGE_KEY_STUDENTS, []));
+    }
+  );
 }
 
 export async function deleteStudent(studentId: string): Promise<void> {
-  // Local remove
   const localStudents = getLocal<Student[]>(LOCAL_STORAGE_KEY_STUDENTS, []).filter((s) => s.id !== studentId);
   setLocal(LOCAL_STORAGE_KEY_STUDENTS, localStudents);
 
-  try {
-    await deleteDoc(doc(db, 'students', studentId));
-    await deleteDoc(doc(db, 'submissions', studentId));
-    await deleteDoc(doc(db, 'results', studentId));
-  } catch (err) {
-    console.warn('Error deleting document from Firestore:', err);
-  }
+  const localResults = getLocal<Record<string, TestResult>>(LOCAL_STORAGE_KEY_RESULTS, {});
+  delete localResults[studentId];
+  setLocal(LOCAL_STORAGE_KEY_RESULTS, localResults);
+
+  const localSubs = getLocal<Record<string, TestSubmission>>(LOCAL_STORAGE_KEY_SUBMISSIONS, {});
+  delete localSubs[studentId];
+  setLocal(LOCAL_STORAGE_KEY_SUBMISSIONS, localSubs);
+
+  await Promise.all([
+    deleteDoc(doc(db, 'students', studentId)),
+    deleteDoc(doc(db, 'submissions', studentId)),
+    deleteDoc(doc(db, 'results', studentId)),
+  ]);
 }
 
-// 3. TEST SUBMISSION & EVALUATION
+// 3. TEST SUBMISSION, EVALUATION & REAL-TIME RESULT SUBSCRIPTIONS
 export async function submitTestAnswers(
   submissionData: Omit<TestSubmission, 'id' | 'submittedAt' | 'status'>
 ): Promise<{ submission: TestSubmission; result: TestResult }> {
-  const submission: TestSubmission = {
+  const submission: TestSubmission = sanitizeForFirestore({
     ...submissionData,
     submittedAt: new Date().toISOString(),
     status: 'analyzed',
-  };
+  });
 
   const studentId = submission.studentId;
 
-  // Local storage save
+  // Save locally first for instantaneous resilience
   const localSubs = getLocal<Record<string, TestSubmission>>(LOCAL_STORAGE_KEY_SUBMISSIONS, {});
   localSubs[studentId] = submission;
   setLocal(LOCAL_STORAGE_KEY_SUBMISSIONS, localSubs);
 
   // Evaluate result
-  const calculatedResult = evaluateSubmission(submission);
+  const calculatedResult = sanitizeForFirestore(evaluateSubmission(submission));
 
   // Check institution release policy
   const settings = await getInstitutionSettings();
@@ -219,7 +327,6 @@ export async function submitTestAnswers(
       isReleased = true;
     }
   } else {
-    // 'manual' mode: awaits admin release
     isReleased = false;
   }
 
@@ -238,24 +345,25 @@ export async function submitTestAnswers(
     setLocal(LOCAL_STORAGE_KEY_STUDENTS, localStudents);
   }
 
-  // Sync to Firestore
-  try {
-    await setDoc(doc(db, 'submissions', studentId), submission);
-    await setDoc(doc(db, 'results', studentId), calculatedResult);
-    await updateDoc(doc(db, 'students', studentId), { status: 'evaluated' });
-  } catch (error) {
-    console.warn('Saved submission locally, Firestore sync pending:', error);
-  }
+  // Sync directly to Firestore (throws if network/Firestore is unavailable so draft stays protected)
+  await Promise.all([
+    setDoc(doc(db, 'submissions', studentId), submission),
+    setDoc(doc(db, 'results', studentId), calculatedResult),
+    setDoc(doc(db, 'students', studentId), { status: 'evaluated' }, { merge: true }),
+  ]);
 
   return { submission, result: calculatedResult };
 }
 
 export async function getStudentResult(studentId: string): Promise<TestResult | null> {
-  // Check Firestore first
   try {
     const snap = await getDoc(doc(db, 'results', studentId));
     if (snap.exists()) {
-      return snap.data() as TestResult;
+      const data = snap.data() as TestResult;
+      const localResults = getLocal<Record<string, TestResult>>(LOCAL_STORAGE_KEY_RESULTS, {});
+      localResults[studentId] = data;
+      setLocal(LOCAL_STORAGE_KEY_RESULTS, localResults);
+      return data;
     }
   } catch (error) {
     console.warn('Fallback checking local test results:', error);
@@ -265,22 +373,88 @@ export async function getStudentResult(studentId: string): Promise<TestResult | 
   return localResults[studentId] || null;
 }
 
+export function subscribeStudentResult(
+  studentId: string,
+  onData: (result: TestResult | null) => void,
+  onStatus?: (status: FirebaseSyncStatus, errorMsg?: string) => void
+): Unsubscribe {
+  onStatus?.('connecting');
+  return onSnapshot(
+    doc(db, 'results', studentId),
+    { includeMetadataChanges: true },
+    (snap) => {
+      const status: FirebaseSyncStatus = snap.metadata.fromCache ? 'cache' : 'live';
+      onStatus?.(status);
+
+      if (snap.exists()) {
+        const data = snap.data() as TestResult;
+        const localResults = getLocal<Record<string, TestResult>>(LOCAL_STORAGE_KEY_RESULTS, {});
+        localResults[studentId] = data;
+        setLocal(LOCAL_STORAGE_KEY_RESULTS, localResults);
+        onData(data);
+      } else {
+        onData(null);
+      }
+    },
+    (error) => {
+      console.error('Firestore student result subscription error:', error);
+      onStatus?.('error', error.message);
+      const localResults = getLocal<Record<string, TestResult>>(LOCAL_STORAGE_KEY_RESULTS, {});
+      onData(localResults[studentId] || null);
+    }
+  );
+}
+
 export async function getAllResults(): Promise<TestResult[]> {
   try {
     const snap = await getDocs(collection(db, 'results'));
     const list: TestResult[] = [];
+    const cacheMap: Record<string, TestResult> = {};
     snap.forEach((d) => {
-      list.push(d.data() as TestResult);
+      const data = d.data() as TestResult;
+      list.push(data);
+      cacheMap[d.id] = data;
     });
-    if (list.length > 0) {
-      return list;
-    }
+    list.sort((a, b) => (b.evaluatedAt || '').localeCompare(a.evaluatedAt || ''));
+    setLocal(LOCAL_STORAGE_KEY_RESULTS, cacheMap);
+    return list;
   } catch (error) {
     console.warn('Fallback to local results:', error);
+    const localResults = getLocal<Record<string, TestResult>>(LOCAL_STORAGE_KEY_RESULTS, {});
+    return Object.values(localResults);
   }
+}
 
-  const localResults = getLocal<Record<string, TestResult>>(LOCAL_STORAGE_KEY_RESULTS, {});
-  return Object.values(localResults);
+export function subscribeAllResults(
+  onData: (results: TestResult[]) => void,
+  onStatus?: (status: FirebaseSyncStatus, errorMsg?: string) => void
+): Unsubscribe {
+  onStatus?.('connecting');
+  return onSnapshot(
+    collection(db, 'results'),
+    { includeMetadataChanges: true },
+    (snap) => {
+      const status: FirebaseSyncStatus = snap.metadata.fromCache ? 'cache' : 'live';
+      onStatus?.(status);
+
+      const list: TestResult[] = [];
+      const cacheMap: Record<string, TestResult> = {};
+      snap.forEach((d) => {
+        const data = d.data() as TestResult;
+        list.push(data);
+        cacheMap[d.id] = data;
+      });
+      list.sort((a, b) => (b.evaluatedAt || '').localeCompare(a.evaluatedAt || ''));
+      setLocal(LOCAL_STORAGE_KEY_RESULTS, cacheMap);
+      onData(list);
+    },
+    (error) => {
+      console.error('Firestore results subscription error:', error);
+      onStatus?.('error', error.message);
+      const localResults = getLocal<Record<string, TestResult>>(LOCAL_STORAGE_KEY_RESULTS, {});
+      onData(Object.values(localResults));
+    }
+  );
 }
 
 export async function toggleResultRelease(studentId: string, isReleased: boolean): Promise<void> {
@@ -290,9 +464,5 @@ export async function toggleResultRelease(studentId: string, isReleased: boolean
     setLocal(LOCAL_STORAGE_KEY_RESULTS, localResults);
   }
 
-  try {
-    await updateDoc(doc(db, 'results', studentId), { isReleased });
-  } catch (error) {
-    console.warn('Toggle release locally saved, Firestore update error:', error);
-  }
+  await setDoc(doc(db, 'results', studentId), { isReleased }, { merge: true });
 }

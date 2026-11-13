@@ -82,29 +82,36 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
   ];
 
   const colWidth = contentWidth / iqCategories.length;
-  doc.setFontSize(6);
-  doc.setTextColor(15, 23, 42);
 
   iqCategories.forEach((cat, idx) => {
     const colX = margin + idx * colWidth;
     const isSelected = result.iqScore >= cat.min && result.iqScore <= cat.max;
 
+    // Header cell: Category name + IQ range
     doc.setFillColor(isSelected ? 238 : 241, isSelected ? 242 : 245, isSelected ? 255 : 249);
     doc.setDrawColor(203, 213, 225);
-    doc.rect(colX, y, colWidth, 8, 'FD');
+    doc.rect(colX, y, colWidth, 9, 'FD');
 
     doc.setFont('helvetica', isSelected ? 'bold' : 'normal');
+    doc.setFontSize(5.8);
+    doc.setTextColor(isSelected ? 30 : 15, isSelected ? 58 : 23, isSelected ? 138 : 42);
     const splitLabel = doc.splitTextToSize(cat.label, colWidth - 2);
-    doc.text(splitLabel, colX + colWidth / 2, y + 2.8, { align: 'center' });
-    doc.text(cat.range, colX + colWidth / 2, y + 6.8, { align: 'center' });
+    doc.text(splitLabel, colX + colWidth / 2, splitLabel.length > 1 ? y + 2.4 : y + 3.2, { align: 'center' });
 
+    doc.setFont('helvetica', isSelected ? 'bold' : 'normal');
+    doc.setFontSize(5.6);
+    doc.setTextColor(isSelected ? 30 : 71, isSelected ? 58 : 85, isSelected ? 138 : 105);
+    doc.text(cat.range, colX + colWidth / 2, y + 7.6, { align: 'center' });
+
+    // Value cell below header
     doc.setFillColor(isSelected ? 30 : 255, isSelected ? 58 : 255, isSelected ? 138 : 255);
-    doc.rect(colX, y + 8, colWidth, 5.5, 'FD');
+    doc.setDrawColor(203, 213, 225);
+    doc.rect(colX, y + 9, colWidth, 5.5, 'FD');
     if (isSelected) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
+      doc.setFontSize(8.5);
       doc.setTextColor(255, 255, 255);
-      doc.text(String(result.iqScore), colX + colWidth / 2, y + 12, { align: 'center' });
+      doc.text(String(result.iqScore), colX + colWidth / 2, y + 12.9, { align: 'center' });
     }
   });
 
@@ -112,11 +119,14 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(5.2);
   doc.setTextColor(100, 116, 139);
-  const rawNote = `* Skor Mentah Objektif: ${result.rawScoreSession1to4 ?? '-'} / 40 Soal (Numerik: ${result.sessionScores?.numerik ?? '-'}, Verbal: ${result.sessionScores?.verbal ?? '-'}, Silogisme/Spasial: ${result.sessionScores ? result.sessionScores.silogisme + result.sessionScores.spasial : '-'}) | Formula Distribusi Normal Baku (Mean=100, SD=15)`;
-  doc.text(rawNote, margin + 1, y + 14.8);
+  const sessionBreakdown = result.sessionScores
+    ? ` (Numerik: ${result.sessionScores.numerik}, Verbal: ${result.sessionScores.verbal}, Silogisme/Spasial: ${result.sessionScores.silogisme + result.sessionScores.spasial})`
+    : '';
+  const rawNote = `* Skor Mentah Objektif: ${result.rawScoreSession1to4 ?? 0} / 40 Soal${sessionBreakdown} | Formula Distribusi Normal Baku (Mean=100, SD=15)`;
+  doc.text(rawNote, margin + 1, y + 16.6);
 
   // Distribusi Kecerdasan Majemuk
-  y += 17.5;
+  y += 19.5;
   doc.setFillColor(30, 58, 138);
   doc.rect(margin, y, contentWidth, 5, 'F');
   doc.setFont('helvetica', 'bold');
@@ -157,18 +167,18 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
     doc.text(mi.label, margin + 2, y + 2.6);
 
     doc.setFillColor(241, 245, 249);
-    doc.roundedRect(barStartX, y, barMaxWidth, 3.2, 0.8, 0.8, 'F');
+    doc.roundedRect(barStartX, y, barMaxWidth, 3.1, 0.8, 0.8, 'F');
 
     const fillW = Math.max(3, (mi.val / 100) * barMaxWidth);
     doc.setFillColor(37, 99, 235);
-    doc.roundedRect(barStartX, y, fillW, 3.2, 0.8, 0.8, 'F');
+    doc.roundedRect(barStartX, y, fillW, 3.1, 0.8, 0.8, 'F');
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.5);
     doc.setTextColor(15, 23, 42);
     doc.text(`${mi.val.toFixed(2)}%`, barStartX + barMaxWidth + 3.5, y + 2.5);
 
-    y += 3.8;
+    y += 3.6;
   });
 
   y += 1.5;
@@ -176,7 +186,7 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
   miList.forEach((mi, idx) => {
     const isCol2 = idx % 2 === 1;
     const curX = isCol2 ? margin + colW + 6 : margin;
-    const curY = y + Math.floor(idx / 2) * 8.2;
+    const curY = y + Math.floor(idx / 2) * 7.8;
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.2);
@@ -187,11 +197,11 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
     doc.setFontSize(5.4);
     doc.setTextColor(71, 85, 105);
     const splitDesc = doc.splitTextToSize(miDescriptions[mi.key] || '', colW);
-    doc.text(splitDesc.slice(0, 2), curX, curY + 2.6);
+    doc.text(splitDesc.slice(0, 2), curX, curY + 2.5);
   });
 
   // Brain Analysis Section (With Anatomical Brain Lobe Image)
-  y = 143;
+  y = Math.max(149, y + 4 * 7.8 + 1);
   doc.setFillColor(30, 58, 138);
   doc.rect(margin, y, contentWidth, 5, 'F');
   doc.setFont('helvetica', 'bold');
@@ -199,7 +209,7 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
   doc.setTextColor(255, 255, 255);
   doc.text('Brain Analysis & Gaya Belajar Dominan', margin + 3, y + 3.6);
 
-  y += 7.5;
+  y += 7;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.8);
   doc.setTextColor(30, 41, 59);
@@ -211,10 +221,11 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
 
   y += 3;
   // Left: Rendered Anatomical Brain Lobe Image with Leader Lines & Percentages
+  const brainImgTop = y;
   try {
     const brainImgData = generateBrainLobeImageDataUrl(result.brainAnalysis);
     if (brainImgData) {
-      doc.addImage(brainImgData, 'PNG', margin + 1, y, 78, 47);
+      doc.addImage(brainImgData, 'PNG', margin + 1, brainImgTop, 78, 46);
     }
   } catch (err) {
     console.warn('Could not render brain lobe canvas in PDF:', err);
@@ -227,7 +238,7 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
     {
       name: 'FRONTAL LOBE :',
       pct: `${result.brainAnalysis.frontalLobe.toFixed(2)}%`,
-      desc: 'Juga dikenal sebagai korteks motorik, bagian otak yang bertanggung jawab untuk penalaran, perencanaan, berbicara, gerakan, emosi, pemecahan masalah, dan indera penciuman. keterampilan sosial dan moralitas.',
+      desc: 'Juga dikenal sebagai korteks motorik, bagian otak yang bertanggung jawab untuk penalaran, perencanaan, berbicara, gerakan, emosi, pemecahan masalah, dan indera penciuman, keterampilan sosial dan moralitas.',
     },
     {
       name: 'PARIETAL LOBE :',
@@ -246,7 +257,7 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
     },
   ];
 
-  let curLobeY = y + 1;
+  let curLobeY = brainImgTop + 1;
   lobeData.forEach((lobe) => {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.5);
@@ -254,16 +265,16 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
     doc.text(lobe.name, lobeX, curLobeY);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(5.6);
+    doc.setFontSize(5.5);
     doc.setTextColor(51, 65, 85);
     const splitLobe = doc.splitTextToSize(lobe.desc, lobeW);
-    doc.text(splitLobe, lobeX, curLobeY + 2.8);
+    doc.text(splitLobe, lobeX, curLobeY + 2.7);
 
-    curLobeY += 2.8 + splitLobe.length * 2.5 + 1.2;
+    curLobeY += 2.7 + splitLobe.length * 2.4 + 1.1;
   });
 
   // Kesimpulan Box Page 1
-  y = 202;
+  y = Math.max(brainImgTop + 48, curLobeY + 2);
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(203, 213, 225);
   doc.roundedRect(margin, y, contentWidth, 24, 1.5, 1.5, 'FD');
@@ -379,23 +390,23 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
     doc.text(`(${i + 1})`, margin + 2, y);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(5.8);
+    doc.setFontSize(5.7);
     doc.setTextColor(51, 65, 85);
     const splitTrait = doc.splitTextToSize(trait, contentWidth - 10);
     doc.text(splitTrait, margin + 8, y);
-    y += splitTrait.length * 2.8 + 0.8;
+    y += splitTrait.length * 2.55 + 0.65;
   });
 
   // Saran Pengembangan
-  y += 2;
+  y += 1.5;
   doc.setFillColor(30, 58, 138);
-  doc.rect(margin, y, contentWidth, 5.5, 'F');
+  doc.rect(margin, y, contentWidth, 5.2, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('Saran Pengembangan Diri', margin + 3, y + 4);
+  doc.text('Saran Pengembangan Diri', margin + 3, y + 3.8);
 
-  y += 7.5;
+  y += 7;
   const devList = [
     { num: '(1)', text: result.psychologyTrends.developmentRecommendations.priority1 },
     { num: '(2)', text: result.psychologyTrends.developmentRecommendations.priority2 },
@@ -403,88 +414,88 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
   ];
   devList.forEach((d) => {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.5);
+    doc.setFontSize(6.4);
     doc.setTextColor(30, 58, 138);
     doc.text(d.num, margin + 2, y);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6);
+    doc.setFontSize(5.9);
     doc.setTextColor(51, 65, 85);
     const splitDev = doc.splitTextToSize(d.text, contentWidth - 10);
     doc.text(splitDev, margin + 8, y);
-    y += splitDev.length * 3.1 + 1.2;
+    y += splitDev.length * 2.8 + 0.9;
   });
 
   // Gaya Belajar & Posisi Duduk
-  y += 2;
+  y += 1.5;
   doc.setFillColor(241, 245, 249);
-  doc.roundedRect(margin, y, contentWidth, 22, 1.5, 1.5, 'F');
+  doc.roundedRect(margin, y, contentWidth, 20.5, 1.5, 1.5, 'F');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
+  doc.setFontSize(6.8);
   doc.setTextColor(30, 41, 59);
   doc.text(
     `Modalitas Belajar : Parietal Lobe - Tactile (${result.brainAnalysis.parietalLobe.toFixed(2)}%) | Occipital Lobe - Visual (${result.brainAnalysis.occipitalLobe.toFixed(2)}%) | Temporal Lobe - Auditory (${result.brainAnalysis.temporalLobe.toFixed(2)}%)`,
     margin + 3,
-    y + 4.5
+    y + 4.2
   );
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.2);
+  doc.setFontSize(6);
   doc.setTextColor(71, 85, 105);
   const adviceSplit = doc.splitTextToSize(result.psychologyTrends.learningModalityDetails.advice, contentWidth - 6);
-  doc.text(adviceSplit.slice(0, 2), margin + 3, y + 8.5);
+  doc.text(adviceSplit.slice(0, 2), margin + 3, y + 8);
 
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 58, 138);
-  doc.text(`Saran Posisi Duduk dalam Ruang Belajar : ${result.psychologyTrends.recommendedSeating}`, margin + 3, y + 18);
+  doc.text(`Saran Posisi Duduk dalam Ruang Belajar : ${result.psychologyTrends.recommendedSeating}`, margin + 3, y + 17);
 
   // Saran Pengembangan Prestasi
-  y += 25;
+  y += 23;
   doc.setFillColor(30, 58, 138);
-  doc.rect(margin, y, contentWidth, 5.5, 'F');
+  doc.rect(margin, y, contentWidth, 5.2, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('Saran Pengembangan Prestasi & Penjurusan', margin + 3, y + 4);
+  doc.text('Saran Pengembangan Prestasi & Penjurusan', margin + 3, y + 3.8);
 
-  y += 8;
+  y += 7.5;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(6.8);
   doc.setTextColor(30, 41, 59);
   doc.text('(1) Saran lomba yang diikuti adalah bidang :', margin + 2, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(result.psychologyTrends.competitionRecommendation, margin + 55, y);
+  doc.text(result.psychologyTrends.competitionRecommendation, margin + 56, y);
 
-  y += 4.5;
+  y += 4.3;
   doc.setFont('helvetica', 'bold');
   doc.text('(2) Saran penjurusan untuk jenjang lebih tinggi :', margin + 2, y);
   doc.setFont('helvetica', 'normal');
   doc.text(
     `${result.psychologyTrends.highSchoolMajor.stream} dengan PDS : ${result.psychologyTrends.highSchoolMajor.pdsScore.toFixed(2)}%`,
-    margin + 62,
+    margin + 63,
     y
   );
 
   // If SD or SMP -> Add bottom notes on Page 2 and seal (2 pages total)
   if (is2Pages) {
-    y += 9;
+    y = Math.min(y + 6, pageHeight - 25);
     doc.setFillColor(254, 243, 199);
     doc.setDrawColor(245, 158, 11);
-    doc.roundedRect(margin, y, contentWidth, 12, 1.5, 1.5, 'FD');
+    doc.roundedRect(margin, y, contentWidth, 11, 1.5, 1.5, 'FD');
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
+    doc.setFontSize(6.8);
     doc.setTextColor(180, 83, 9);
-    doc.text('Catatan :', margin + 4, y + 4.5);
+    doc.text('Catatan :', margin + 4, y + 4.2);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.2);
+    doc.setFontSize(6);
     doc.setTextColor(146, 64, 14);
     doc.text(
       'Hasil tes diagnostik bisa berubah tergantung kemampuan testee belajar dan berinteraksi dengan lingkungannya.',
       margin + 4,
-      y + 8.5
+      y + 8
     );
 
     drawFooter(doc, 2, 2);
