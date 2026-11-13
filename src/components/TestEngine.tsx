@@ -1,7 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { InstitutionSettings, Student, TestSubmission } from '../types';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { InstitutionSettings, Student, TestResult, TestSubmission } from '../types';
 import { getQuestionsForLevel, getSessionsForLevel } from '../data/diagnosticQuestions';
 import { FiguralDiagram } from './FiguralDiagram';
+import {
+  getStudentResult,
+  lockTestSessionAndGenerateResult,
+  requestSessionUnlock,
+  saveTestSessionProgress,
+  subscribeTestSession,
+} from '../services/dbService';
 import {
   Clock,
   ChevronLeft,
@@ -13,20 +20,24 @@ import {
   FileCheck,
   CheckCircle2,
   ListTodo,
-  Wifi,
   WifiOff,
   HardDrive,
-  RotateCcw,
   Sparkles,
-  BookOpen,
   Info,
   Type,
+  ShieldAlert,
+  Lock,
+  Unlock,
+  Eye,
+  Database,
+  BellRing,
 } from 'lucide-react';
 
 interface TestEngineProps {
   student: Student;
   institution: InstitutionSettings;
   onSubmit: (submissionData: Omit<TestSubmission, 'id' | 'submittedAt' | 'status'>) => Promise<void>;
+  onLockedOutComplete: (lockedResult: TestResult) => void;
   onCancel: () => void;
 }
 
@@ -37,26 +48,28 @@ interface SavedDraft {
   answers: Record<number, string>;
   currentQuestionId: number;
   currentSessionIndex: number;
+  violationCount?: number;
   savedAt: string;
   timeStr: string;
 }
 
 export const TestEngine: React.FC<TestEngineProps> = ({
   student,
-  institution,
+  institution: _institution,
   onSubmit,
-  onCancel,
+  onLockedOutComplete,
 }) => {
   const level = student.educationLevel || 'SMA';
   const questions = useMemo(() => getQuestionsForLevel(level), [level]);
   const sessionsInfo = useMemo(() => getSessionsForLevel(level), [level]);
 
-  // Unique local storage key per student & level
-  const studentKey = student.regNumber || student.username || student.id || 'siswa_aktif';
+  // Unique keys for Firestore & Local Storage
+  const studentId = student.id || student.username;
+  const studentKey = student.regNumber || student.username || studentId;
   const STORAGE_KEY = `diagnostic_test_draft_${studentKey}_${level}`;
   const FONT_PREF_KEY = 'diagnostic_preferred_font_size';
 
-  // Check initial draft synchronously
+  // Read initial local draft synchronously
   const initialDraft = useMemo<SavedDraft | null>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -92,25 +105,39 @@ export const TestEngine: React.FC<TestEngineProps> = ({
     return initialDraft?.answers || {};
   });
 
-  // Local storage auto-save state
+  // Focus-lock / Anti-leave violation tracking
+  const [violationCount, setViolationCount] = useState<number>(initialDraft?.violationCount || 0);
+  const [activeWarningCount, setActiveWarningCount] = useState<number | null>(null);
+  const [warningReason, setWarningReason] = useState<string>('');
+  const [isLocked, setIsLocked] = useState<boolean>(false);
+  const [isLocking, setIsLocking] = useState<boolean>(false);
+  const [unlockRequested, setUnlockRequested] = useState<boolean>(false);
+  const [unlockNote, setUnlockNote] = useState<string>('');
+  const [unlockRequestSending, setUnlockRequestSending] = useState<boolean>(false);
+  const [unlockedBanner, setUnlockedBanner] = useState<boolean>(false);
+  const [lockedGeneratedResult, setLockedGeneratedResult] = useState<TestResult | null>(null);
+
+  // Sync status & connectivity
   const [lastSavedTime, setLastSavedTime] = useState<string>(
-    initialDraft?.timeStr || new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    initialDraft?.timeStr ||
+      new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [cloudSynced, setCloudSynced] = useState<'connecting' | 'live' | 'cache' | 'error'>('connecting');
   const [showRestoredNotice, setShowRestoredNotice] = useState<boolean>(() => {
     return !!(initialDraft && Object.keys(initialDraft.answers).length > 0);
   });
 
-  // Font size control: 'normal' (15px), 'large' (17px), 'xlarge' (20px)
-  // Default to 'large' for SD to enhance readability, 'normal' for SMP/SMA
+  // Font size control
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>(() => {
     const saved = localStorage.getItem(FONT_PREF_KEY);
     if (saved === 'normal' || saved === 'large' || saved === 'xlarge') return saved;
     return level === 'SD' ? 'large' : 'normal';
   });
 
-  // Online / Offline connectivity listener
-  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [isOnline, setIsOnline] = useState<boolean>(
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
 
   // UI state
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
@@ -119,7 +146,27 @@ export const TestEngine: React.FC<TestEngineProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Connectivity event listeners
+  // Refs to prevent stale closures & double-counting violations
+  const answersRef = useRef(answers);
+  const currentQuestionIdRef = useRef(currentQuestionId);
+  const currentSessionIndexRef = useRef(currentSessionIndex);
+  const violationCountRef = useRef(violationCount);
+  const isLockedRef = useRef(isLocked);
+  const isLockingRef = useRef(isLocking);
+  const isSubmittingRef = useRef(isSubmitting);
+  const wasLockedRef = useRef(false);
+  const sessionHydratedRef = useRef(false);
+  const lastViolationAtRef = useRef<number>(0);
+
+  answersRef.current = answers;
+  currentQuestionIdRef.current = currentQuestionId;
+  currentSessionIndexRef.current = currentSessionIndex;
+  violationCountRef.current = violationCount;
+  isLockedRef.current = isLocked;
+  isLockingRef.current = isLocking;
+  isSubmittingRef.current = isSubmitting;
+
+  // Connectivity listeners
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -133,6 +180,251 @@ export const TestEngine: React.FC<TestEngineProps> = ({
     };
   }, []);
 
+  // Prevent browser tab close / reload / back leaving while test is active
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isSubmittingRef.current) return;
+      e.preventDefault();
+      e.returnValue =
+        'Anda sedang mengerjakan asesmen. Meninggalkan halaman ini dapat mengunci tes Anda!';
+      return e.returnValue;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  // REAL-TIME FIRESTORE SESSION SUBSCRIPTION (Restore & Listen for Admin Unlock)
+  useEffect(() => {
+    let mounted = true;
+    const unsub = subscribeTestSession(
+      studentId,
+      async (session) => {
+        if (!mounted) return;
+        sessionHydratedRef.current = true;
+        if (!session) return;
+
+        // Merge saved answers from Firestore with local state (keep the union, prefer non-empty)
+        if (session.answers && Object.keys(session.answers).length > 0) {
+          setAnswers((prev) => {
+            const merged = { ...session.answers, ...prev };
+            return merged;
+          });
+        }
+
+        // Handle Admin Unlock transition in real-time (including if student logged back in after unlock)!
+        const unlockedSinceDraft =
+          Boolean(session.unlockedByAdmin) &&
+          !session.isLocked &&
+          (wasLockedRef.current || violationCountRef.current > (session.violationCount || 0));
+
+        if (unlockedSinceDraft) {
+          wasLockedRef.current = false;
+          isLockedRef.current = false;
+          violationCountRef.current = session.violationCount || 0;
+          setIsLocked(false);
+          setViolationCount(session.violationCount || 0);
+          setActiveWarningCount(null);
+          setUnlockRequested(false);
+          setLockedGeneratedResult(null);
+          setUnlockedBanner(true);
+          lastViolationAtRef.current = Date.now() + 1500;
+
+          // Clear stale violationCount from localStorage draft
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              parsed.violationCount = session.violationCount || 0;
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+            }
+          } catch {}
+          return;
+        }
+
+        if (session.isLocked) {
+          wasLockedRef.current = true;
+          isLockedRef.current = true;
+          setIsLocked(true);
+          setViolationCount(session.violationCount || 4);
+          violationCountRef.current = session.violationCount || 4;
+          setUnlockRequested(Boolean(session.unlockRequested));
+          setActiveWarningCount(null);
+
+          // Load preliminary locked result if present
+          try {
+            const res = await getStudentResult(studentId);
+            if (mounted && res) {
+              setLockedGeneratedResult(res);
+            }
+          } catch {}
+        } else {
+          wasLockedRef.current = false;
+          isLockedRef.current = false;
+          setIsLocked(false);
+          if (typeof session.violationCount === 'number' && session.violationCount > violationCountRef.current) {
+            setViolationCount(session.violationCount);
+            violationCountRef.current = session.violationCount;
+          }
+          if (
+            Object.keys(answersRef.current).length === 0 &&
+            typeof session.currentQuestionId === 'number' &&
+            session.currentQuestionId >= 1
+          ) {
+            setCurrentQuestionId(session.currentQuestionId);
+          }
+          if (
+            Object.keys(answersRef.current).length === 0 &&
+            typeof session.currentSessionIndex === 'number' &&
+            session.currentSessionIndex >= 0
+          ) {
+            setCurrentSessionIndex(session.currentSessionIndex);
+          }
+        }
+      },
+      (status) => {
+        if (mounted) setCloudSynced(status);
+      }
+    );
+
+    return () => {
+      mounted = false;
+      unsub();
+    };
+  }, [studentId]);
+
+  // Trigger focus violation when student leaves test page or switches tab/window
+  const triggerViolation = useCallback(
+    async (reason: string) => {
+      if (isLockedRef.current || isLockingRef.current || isSubmittingRef.current) return;
+
+      const now = Date.now();
+      if (now - lastViolationAtRef.current < 1500) {
+        return; // Prevent duplicate count for simultaneous blur + visibilitychange
+      }
+      lastViolationAtRef.current = now;
+
+      const nextCount = violationCountRef.current + 1;
+      violationCountRef.current = nextCount;
+      setViolationCount(nextCount);
+
+      const snapshotAnswers = answersRef.current;
+      const snapshotQId = currentQuestionIdRef.current;
+      const snapshotSessIdx = currentSessionIndexRef.current;
+
+      // Update localStorage draft immediately
+      try {
+        const timeStr = new Date().toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+        const draft: SavedDraft = {
+          studentId: studentKey,
+          regNumber: student.regNumber,
+          level,
+          answers: snapshotAnswers,
+          currentQuestionId: snapshotQId,
+          currentSessionIndex: snapshotSessIdx,
+          violationCount: nextCount,
+          savedAt: new Date().toISOString(),
+          timeStr,
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+      } catch {}
+
+      if (nextCount <= 3) {
+        // Show warning 1/3, 2/3, or 3/3 and sync to Firebase immediately
+        setWarningReason(reason);
+        setActiveWarningCount(nextCount);
+
+        saveTestSessionProgress({
+          studentId,
+          regNumber: student.regNumber,
+          username: student.username,
+          fullName: student.fullName,
+          educationLevel: level,
+          schoolOrigin: student.schoolOrigin,
+          grade: student.grade,
+          answers: snapshotAnswers,
+          answeredCount: Object.keys(snapshotAnswers).length,
+          currentQuestionId: snapshotQId,
+          currentSessionIndex: snapshotSessIdx,
+          violationCount: nextCount,
+          isLocked: false,
+          status: 'in_progress',
+        });
+      } else {
+        // Exceeded 3 departures (> 3 kali): AUTO-LOCK & SAVE TO DATABASE + GENERATE LOCKED RESULT!
+        setIsLocking(true);
+        setIsLocked(true);
+        wasLockedRef.current = true;
+        setActiveWarningCount(null);
+
+        try {
+          const { result } = await lockTestSessionAndGenerateResult({
+            studentId,
+            regNumber: student.regNumber,
+            username: student.username,
+            fullName: student.fullName,
+            educationLevel: level,
+            schoolOrigin: student.schoolOrigin,
+            grade: student.grade,
+            answers: snapshotAnswers,
+            answeredCount: Object.keys(snapshotAnswers).length,
+            currentQuestionId: snapshotQId,
+            currentSessionIndex: snapshotSessIdx,
+            violationCount: nextCount,
+          });
+          setLockedGeneratedResult(result);
+        } catch (err) {
+          console.error('Error locking & saving test session:', err);
+        } finally {
+          setIsLocking(false);
+        }
+      }
+    },
+    [STORAGE_KEY, level, student.fullName, student.grade, student.regNumber, student.schoolOrigin, student.username, studentId, studentKey]
+  );
+
+  // Attach visibilitychange & window blur listeners for anti-leave focus guard
+  useEffect(() => {
+    let blurTimer: number | null = null;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        triggerViolation('Membuka tab lain atau meminimalkan halaman asesmen');
+      }
+    };
+
+    const handleWindowBlur = () => {
+      if (blurTimer) window.clearTimeout(blurTimer);
+      blurTimer = window.setTimeout(() => {
+        if (!document.hasFocus() || document.hidden) {
+          triggerViolation('Berpindah ke jendela atau aplikasi lain di luar halaman tes');
+        }
+      }, 220);
+    };
+
+    const handleWindowFocus = () => {
+      if (blurTimer) {
+        window.clearTimeout(blurTimer);
+        blurTimer = null;
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      if (blurTimer) window.clearTimeout(blurTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [triggerViolation]);
+
   // Save font size preference
   const handleChangeFontSize = (size: 'normal' | 'large' | 'xlarge') => {
     setFontSize(size);
@@ -141,10 +433,10 @@ export const TestEngine: React.FC<TestEngineProps> = ({
     } catch {}
   };
 
-  // AUTO-SAVE TO LOCAL STORAGE: continuous real-time save on any answer/navigation change
+  // AUTO-SAVE TO LOCAL STORAGE (fast 250ms) + REAL-TIME SYNC TO FIREBASE (debounced 900ms)
   useEffect(() => {
     setIsSaving(true);
-    const timer = setTimeout(() => {
+    const localTimer = setTimeout(() => {
       try {
         const now = new Date();
         const timeStr = now.toLocaleTimeString('id-ID', {
@@ -159,6 +451,7 @@ export const TestEngine: React.FC<TestEngineProps> = ({
           answers,
           currentQuestionId,
           currentSessionIndex,
+          violationCount: violationCountRef.current,
           savedAt: now.toISOString(),
           timeStr,
         };
@@ -171,8 +464,44 @@ export const TestEngine: React.FC<TestEngineProps> = ({
       }
     }, 250);
 
-    return () => clearTimeout(timer);
-  }, [answers, currentQuestionId, currentSessionIndex, STORAGE_KEY, studentKey, student.regNumber, level]);
+    const cloudTimer = setTimeout(() => {
+      if (!sessionHydratedRef.current || isLockedRef.current || isSubmittingRef.current) return;
+      saveTestSessionProgress({
+        studentId,
+        regNumber: student.regNumber,
+        username: student.username,
+        fullName: student.fullName,
+        educationLevel: level,
+        schoolOrigin: student.schoolOrigin,
+        grade: student.grade,
+        answers,
+        answeredCount: Object.keys(answers).length,
+        currentQuestionId,
+        currentSessionIndex,
+        violationCount: violationCountRef.current,
+        isLocked: false,
+        status: 'in_progress',
+      });
+    }, 900);
+
+    return () => {
+      clearTimeout(localTimer);
+      clearTimeout(cloudTimer);
+    };
+  }, [
+    answers,
+    currentQuestionId,
+    currentSessionIndex,
+    STORAGE_KEY,
+    studentKey,
+    studentId,
+    student.regNumber,
+    student.username,
+    student.fullName,
+    student.schoolOrigin,
+    student.grade,
+    level,
+  ]);
 
   // Current session config
   const currentSession = sessionsInfo[currentSessionIndex] || sessionsInfo[0];
@@ -187,6 +516,7 @@ export const TestEngine: React.FC<TestEngineProps> = ({
 
   useEffect(() => {
     const timer = setInterval(() => {
+      if (isLockedRef.current) return; // pause countdown while locked
       setSecondsRemaining((prev) => {
         if (prev <= 1) return 0;
         return prev - 1;
@@ -205,14 +535,19 @@ export const TestEngine: React.FC<TestEngineProps> = ({
     return questions.find((q) => q.id === currentQuestionId) || questions[0];
   }, [questions, currentQuestionId]);
 
-  const handleSelectOption = useCallback((label: string) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [currentQuestionId]: label,
-    }));
-  }, [currentQuestionId]);
+  const handleSelectOption = useCallback(
+    (label: string) => {
+      if (isLockedRef.current) return;
+      setAnswers((prev) => ({
+        ...prev,
+        [currentQuestionId]: label,
+      }));
+    },
+    [currentQuestionId]
+  );
 
   const handleNext = useCallback(() => {
+    if (isLockedRef.current) return;
     if (currentQuestionId < currentSession.endQuestion) {
       setCurrentQuestionId((prev) => prev + 1);
     } else if (currentSessionIndex < sessionsInfo.length - 1) {
@@ -225,6 +560,7 @@ export const TestEngine: React.FC<TestEngineProps> = ({
   }, [currentQuestionId, currentSession.endQuestion, currentSessionIndex, sessionsInfo]);
 
   const handlePrev = useCallback(() => {
+    if (isLockedRef.current) return;
     if (currentQuestionId > currentSession.startQuestion) {
       setCurrentQuestionId((prev) => prev - 1);
     } else if (currentSessionIndex > 0) {
@@ -237,7 +573,14 @@ export const TestEngine: React.FC<TestEngineProps> = ({
   // Keyboard shortcut listener for PC / Laptop
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (showConfirmModal || isPaletteOpen) return;
+      if (
+        showConfirmModal ||
+        isPaletteOpen ||
+        isLockedRef.current ||
+        activeWarningCount !== null
+      ) {
+        return;
+      }
 
       if (e.key === 'ArrowRight') {
         handleNext();
@@ -251,7 +594,13 @@ export const TestEngine: React.FC<TestEngineProps> = ({
             handleSelectOption(key);
           }
         } else if (['1', '2', '3', '4', '5'].includes(key)) {
-          const mapNum: Record<string, string> = { '1': 'A', '2': 'B', '3': 'C', '4': 'D', '5': 'E' };
+          const mapNum: Record<string, string> = {
+            '1': 'A',
+            '2': 'B',
+            '3': 'C',
+            '4': 'D',
+            '5': 'E',
+          };
           const label = mapNum[key];
           const validOpt = currentQuestion.options.find((o) => o.label === label);
           if (validOpt) {
@@ -263,7 +612,15 @@ export const TestEngine: React.FC<TestEngineProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleNext, handlePrev, handleSelectOption, currentQuestion.options, showConfirmModal, isPaletteOpen]);
+  }, [
+    handleNext,
+    handlePrev,
+    handleSelectOption,
+    currentQuestion.options,
+    showConfirmModal,
+    isPaletteOpen,
+    activeWarningCount,
+  ]);
 
   // Progress metrics
   const totalQuestions = questions.length;
@@ -276,19 +633,64 @@ export const TestEngine: React.FC<TestEngineProps> = ({
   ).length;
   const totalInSession = currentSession.endQuestion - currentSession.startQuestion + 1;
   const remainingInSession = totalInSession - answeredInSession;
-  const sessionProgressPercentage = Math.round((answeredInSession / totalInSession) * 100);
 
-  // SUBMIT HANDLER:
-  // 1. Re-persist to localStorage immediately so no answer is lost.
-  // 2. Submit to backend / Firestore.
-  // 3. ONLY purge localStorage draft when submit succeeds.
-  // 4. If submission fails due to network or server, keep draft intact and notify student.
+  const handleRequestUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUnlockRequestSending(true);
+    try {
+      await requestSessionUnlock(studentId, unlockNote);
+      setUnlockRequested(true);
+    } catch (err) {
+      console.error('Error sending unlock request:', err);
+    } finally {
+      setUnlockRequestSending(false);
+    }
+  };
+
+  const handleFinalizeLockedWithoutAdmin = async () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
+
+    if (lockedGeneratedResult) {
+      onLockedOutComplete(lockedGeneratedResult);
+      return;
+    }
+
+    // Fallback: ensure locked result is generated & fetched
+    try {
+      const existing = await getStudentResult(studentId);
+      if (existing) {
+        onLockedOutComplete(existing);
+        return;
+      }
+      const { result } = await lockTestSessionAndGenerateResult({
+        studentId,
+        regNumber: student.regNumber,
+        username: student.username,
+        fullName: student.fullName,
+        educationLevel: level,
+        schoolOrigin: student.schoolOrigin,
+        grade: student.grade,
+        answers,
+        answeredCount,
+        currentQuestionId,
+        currentSessionIndex,
+        violationCount: Math.max(4, violationCount),
+      });
+      onLockedOutComplete(result);
+    } catch (err) {
+      alert('Gagal memuat hasil tes: ' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  // SUBMIT HANDLER
   const handleSubmitFinal = async () => {
     if (!dataConfirmed) return;
     setIsSubmitting(true);
+    isSubmittingRef.current = true;
     setSubmitError(null);
 
-    // Final backup to localStorage
     try {
       const now = new Date();
       const finalDraft: SavedDraft = {
@@ -298,17 +700,16 @@ export const TestEngine: React.FC<TestEngineProps> = ({
         answers,
         currentQuestionId,
         currentSessionIndex,
+        violationCount,
         savedAt: now.toISOString(),
         timeStr: now.toLocaleTimeString('id-ID'),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(finalDraft));
-    } catch (e) {
-      console.warn('Backup draft notice:', e);
-    }
+    } catch {}
 
     try {
       await onSubmit({
-        studentId: student.id || student.username,
+        studentId,
         regNumber: student.regNumber,
         username: student.username,
         fullName: student.fullName,
@@ -317,9 +718,10 @@ export const TestEngine: React.FC<TestEngineProps> = ({
         grade: student.grade,
         answers,
         dataConfirmed: true,
+        completionStatus: 'completed',
+        violationCount,
       });
 
-      // Purge draft only on verified success
       try {
         localStorage.removeItem(STORAGE_KEY);
       } catch {}
@@ -330,6 +732,7 @@ export const TestEngine: React.FC<TestEngineProps> = ({
         `Koneksi server terganggu (${errMsg}). Jangan panik! Seluruh ${answeredCount} jawaban Anda tetap tersimpan AMAN di memori perangkat ini. Silakan periksa jaringan internet dan coba kirim kembali.`
       );
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -357,6 +760,184 @@ export const TestEngine: React.FC<TestEngineProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-100/75 pb-36 sm:pb-32 selection:bg-indigo-100 selection:text-indigo-900">
+      {/* FULLSCREEN LOCKED SCREEN OVERLAY WHEN VIOLATIONS > 3 */}
+      {isLocked && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl border-2 border-rose-300 w-full max-w-xl p-6 sm:p-8 space-y-5 my-auto animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-4 border-b border-rose-100 pb-4">
+              <div className="w-14 h-14 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 shadow-xs">
+                <Lock className="w-7 h-7" />
+              </div>
+              <div>
+                <span className="inline-block text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-600 text-white mb-1">
+                  Tes Terkunci Otomatis
+                </span>
+                <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 leading-snug">
+                  Akses Pengerjaan Tes Dikunci Sementara
+                </h2>
+              </div>
+            </div>
+
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs sm:text-sm text-rose-900 space-y-2 leading-relaxed">
+              <p className="font-bold flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>Anda telah keluar dari halaman tes lebih dari 3 kali ({violationCount} pelanggaran).</span>
+              </p>
+              <p>
+                Sesuai aturan asesmen, sistem otomatis mengunci tes dan{' '}
+                <strong>seluruh {answeredCount} jawaban Anda telah tersimpan secara real-time di database Firebase</strong>.
+              </p>
+            </div>
+
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-900 flex items-center gap-2.5">
+              <Database className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                Status Database: <strong>{isLocking ? 'Menyimpan jawaban ke database...' : 'Tersimpan Real-Time di Cloud Firestore'}</strong>
+              </span>
+            </div>
+
+            {/* Option 1: Request & Wait for Admin Unlock */}
+            <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-3">
+              <h3 className="text-xs sm:text-sm font-bold text-indigo-950 flex items-center gap-2">
+                <Unlock className="w-4 h-4 text-indigo-600" />
+                <span>Opsi 1: Konfirmasi ke Admin untuk Melanjutkan Tes</span>
+              </h3>
+              {unlockRequested ? (
+                <div className="p-3 bg-white border border-indigo-200 rounded-xl text-xs text-indigo-900 space-y-1.5">
+                  <div className="flex items-center gap-2 font-bold text-indigo-700">
+                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-ping inline-block" />
+                    <span>Permintaan Buka Kunci Telah Terkirim ke Admin</span>
+                  </div>
+                  <p className="text-slate-600 leading-relaxed">
+                    Silakan hubungi pengawas atau admin lembaga. Halaman ini akan <strong>otomatis terbuka seketika secara real-time</strong> setelah Admin membuka kunci tes Anda.
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleRequestUnlock} className="space-y-2.5">
+                  <input
+                    type="text"
+                    placeholder="Tulis alasan singkat untuk Admin (opsional, misal: kepencet notifikasi)..."
+                    value={unlockNote}
+                    onChange={(e) => setUnlockNote(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs border border-indigo-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 outline-hidden"
+                  />
+                  <button
+                    type="submit"
+                    disabled={unlockRequestSending}
+                    className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <BellRing className="w-4 h-4" />
+                    <span>{unlockRequestSending ? 'Mengirim Konfirmasi...' : 'Kirim Permintaan Buka Kunci ke Admin'}</span>
+                  </button>
+                </form>
+              )}
+            </div>
+
+            {/* Option 2: No confirmation to Admin -> View Generated Locked Result */}
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5">
+              <h3 className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-2">
+                <Eye className="w-4 h-4 text-slate-600" />
+                <span>Opsi 2: Tidak Konfirmasi ke Admin (Generate Hasil Sekarang)</span>
+              </h3>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Jika Anda tidak meminta pembukaan kunci ke Admin, hasil evaluasi telah digenerate otomatis dari jawaban yang tersimpan dengan keterangan{' '}
+                <em>"Tidak dapat menyelesaikan tes karena keluar dari halaman tes sebanyak 3 kali."</em>
+              </p>
+              <button
+                type="button"
+                disabled={isLocking}
+                onClick={handleFinalizeLockedWithoutAdmin}
+                className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Eye className="w-4 h-4" />
+                <span>{isLocking ? 'Menyiapkan Laporan...' : 'Lihat Laporan Hasil yang Digenerate'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FOCUS WARNING MODAL FOR VIOLATIONS 1, 2, AND 3 */}
+      {!isLocked && activeWarningCount !== null && (
+        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border-2 border-amber-400 w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                  activeWarningCount >= 3
+                    ? 'bg-rose-100 text-rose-700'
+                    : 'bg-amber-100 text-amber-700'
+                }`}
+              >
+                <ShieldAlert className="w-6 h-6" />
+              </div>
+              <div>
+                <span
+                  className={`inline-block text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full text-white mb-1 ${
+                    activeWarningCount >= 3 ? 'bg-rose-600' : 'bg-amber-600'
+                  }`}
+                >
+                  Peringatan Pelanggaran Fokus ({activeWarningCount} / 3)
+                </span>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Dilarang Meninggalkan Halaman Tes!
+                </h3>
+              </div>
+            </div>
+
+            <div
+              className={`p-3.5 rounded-2xl border text-xs leading-relaxed space-y-1.5 ${
+                activeWarningCount >= 3
+                  ? 'bg-rose-50 border-rose-200 text-rose-900'
+                  : 'bg-amber-50 border-amber-200 text-amber-900'
+              }`}
+            >
+              <p className="font-semibold">
+                Deteksi Sistem: {warningReason}.
+              </p>
+              {activeWarningCount === 3 ? (
+                <p className="font-bold">
+                  PERINGATAN TERAKHIR (3/3)! Jika Anda meninggalkan halaman tes sekali lagi (lebih dari 3 kali), sistem akan OTOMATIS MENGUNCI tes dan langsung menyimpan jawaban ke database.
+                </p>
+              ) : (
+                <p>
+                  Harap tetap berada di halaman asesmen hingga selesai. Sisa batas toleransi:{' '}
+                  <strong>{3 - activeWarningCount} kali peringatan lagi</strong> sebelum tes terkunci otomatis.
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveWarningCount(null)}
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-md shadow-indigo-200 transition cursor-pointer"
+            >
+              Saya Mengerti & Lanjutkan Mengerjakan Tes
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ADMIN UNLOCKED NOTIFICATION BANNER */}
+      {unlockedBanner && !isLocked && (
+        <div className="bg-emerald-600 text-white px-4 py-2.5 text-xs sm:text-sm font-semibold flex items-center justify-between shadow-md">
+          <div className="max-w-7xl mx-auto px-2 flex items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <Unlock className="w-4 h-4 shrink-0" />
+              <span>
+                <strong>Kunci Dibuka oleh Admin!</strong> Anda dapat melanjutkan pengerjaan tes. Jaga fokus dan jangan tinggalkan halaman tes lagi.
+              </span>
+            </div>
+            <button
+              onClick={() => setUnlockedBanner(false)}
+              className="text-white/90 hover:text-white text-xs font-bold px-2 py-0.5 rounded bg-emerald-700 cursor-pointer ml-3 shrink-0"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* OFFLINE RESILIENCE BANNER */}
       {!isOnline && (
         <div className="sticky top-0 z-40 bg-linear-to-r from-amber-600 to-orange-600 text-white px-4 py-2 text-xs sm:text-sm font-semibold flex items-center justify-between shadow-md">
@@ -370,13 +951,13 @@ export const TestEngine: React.FC<TestEngineProps> = ({
       )}
 
       {/* RESTORED DRAFT WELCOME BANNER */}
-      {showRestoredNotice && (
+      {showRestoredNotice && !isLocked && (
         <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-900 px-4 py-2.5 text-xs sm:text-sm flex items-center justify-between">
           <div className="max-w-7xl mx-auto px-2 flex items-center justify-between w-full">
             <div className="flex items-center gap-2">
               <HardDrive className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>
-                <strong>Sesi Dipulihkan Otomatis:</strong> Memuat {answeredCount} jawaban yang tersimpan di perangkat ini (Terakhir disimpan: {lastSavedTime}). Anda dapat langsung melanjutkan pengerjaan!
+                <strong>Sesi Dipulihkan Otomatis:</strong> Memuat {answeredCount} jawaban yang tersimpan (Terakhir disimpan: {lastSavedTime}). Anda dapat langsung melanjutkan pengerjaan!
               </span>
             </div>
             <button
@@ -431,22 +1012,34 @@ export const TestEngine: React.FC<TestEngineProps> = ({
               </div>
             </div>
 
-            {/* Right: Auto-save status, Timer, Palette button, and Submit */}
-            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-              {/* REAL-TIME AUTO-SAVE BADGE */}
+            {/* Right: Focus Lock Status, Cloud Sync, Timer, Palette, Submit */}
+            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+              {/* FOCUS GUARD BADGE */}
               <div
-                className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50/80 border border-emerald-200/90 text-emerald-800 text-[11px] font-semibold"
-                title={`Jawaban tersimpan otomatis di penyimpanan lokal browser pada ${lastSavedTime}`}
+                className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-bold ${
+                  violationCount > 0
+                    ? 'bg-rose-50 border-rose-300 text-rose-800'
+                    : 'bg-blue-50 border-blue-200 text-blue-800'
+                }`}
+                title="Mode Kunci Halaman Aktif: Dilarang membuka tab/halaman lain"
+              >
+                <ShieldAlert className={`w-3.5 h-3.5 ${violationCount > 0 ? 'text-rose-600' : 'text-blue-600'}`} />
+                <span>
+                  {violationCount > 0 ? `Peringatan: ${violationCount}/3` : 'Mode Fokus Aktif'}
+                </span>
+              </div>
+
+              {/* REAL-TIME AUTO-SAVE & CLOUD SYNC BADGE */}
+              <div
+                className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50/80 border border-emerald-200/90 text-emerald-800 text-[11px] font-semibold"
+                title={`Tersimpan lokal (${lastSavedTime}) & tersinkronisasi ke Cloud Firestore (${cloudSynced})`}
               >
                 <div className="relative flex items-center justify-center">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping absolute" />
                   <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block" />
                 </div>
-                <HardDrive className="w-3.5 h-3.5 text-emerald-700" />
-                <span>
-                  {isSaving ? 'Menyimpan...' : 'Tersimpan Otomatis'}
-                </span>
-                <span className="text-[10px] font-mono text-emerald-700/80">({lastSavedTime})</span>
+                <Database className="w-3.5 h-3.5 text-emerald-700" />
+                <span>{isSaving ? 'Menyimpan...' : 'Sync Real-Time'}</span>
               </div>
 
               {/* Countdown Timer */}
@@ -488,13 +1081,14 @@ export const TestEngine: React.FC<TestEngineProps> = ({
 
           {/* DUAL RESPONSIVE PROGRESS BAR: Total & Remaining Soal */}
           <div className="py-2 border-t border-slate-100 space-y-1.5">
-            {/* Metrics Row */}
             <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] sm:text-xs">
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <span className="font-semibold text-slate-700 hidden xs:inline">Progres Asesmen:</span>
                 <span className="font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3 text-indigo-600" />
-                  <span>{answeredCount}/{totalQuestions} ({totalProgressPercentage}%)</span>
+                  <span>
+                    {answeredCount}/{totalQuestions} ({totalProgressPercentage}%)
+                  </span>
                 </span>
                 <span
                   className={`font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
@@ -507,15 +1101,19 @@ export const TestEngine: React.FC<TestEngineProps> = ({
                   <span>{remainingCount > 0 ? `${remainingCount} Soal Tersisa` : 'Semua Terjawab!'}</span>
                 </span>
 
-                {/* Mobile Auto-Save Indicator */}
-                <span className="md:hidden inline-flex items-center gap-1 text-[10px] text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                  <span>Draft Aman ({lastSavedTime})</span>
-                </span>
+                {/* Mobile Violation Warning Pill */}
+                {violationCount > 0 && (
+                  <span className="sm:hidden inline-flex items-center gap-1 text-[10px] text-rose-800 font-bold bg-rose-50 px-2 py-0.5 rounded-full border border-rose-300">
+                    <ShieldAlert className="w-3 h-3 text-rose-600" />
+                    <span>Pelanggaran: {violationCount}/3</span>
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-1.5 text-slate-500 text-[10px] sm:text-[11px]">
                 <span className="hidden sm:inline font-semibold">Sesi {currentSession.session}:</span>
-                <span className="font-bold text-slate-800">{answeredInSession}/{totalInSession}</span>
+                <span className="font-bold text-slate-800">
+                  {answeredInSession}/{totalInSession}
+                </span>
                 <span className="text-slate-400">({remainingInSession} sisa di sesi ini)</span>
               </div>
             </div>
@@ -530,7 +1128,7 @@ export const TestEngine: React.FC<TestEngineProps> = ({
               </div>
             </div>
 
-            {/* Session tabs quick switch - touch scrollable */}
+            {/* Session tabs quick switch */}
             <div className="flex items-center justify-between pt-1 overflow-x-auto pb-0.5 -mx-1 px-1">
               <div className="flex gap-1 sm:gap-1.5 items-center shrink-0">
                 {sessionsInfo.map((s, idx) => {
@@ -565,9 +1163,8 @@ export const TestEngine: React.FC<TestEngineProps> = ({
                 })}
               </div>
 
-              {/* Helpful Tips */}
               <span className="text-[10px] text-slate-400 hidden lg:inline pl-3">
-                Tips: Gunakan tombol keyboard ◄ ► untuk ganti soal, dan angka 1-5 atau A-E untuk memilih jawaban.
+                Aturan Tes: Dilarang membuka tab/halaman lain. Batas toleransi keluar halaman maksimal 3 kali.
               </span>
             </div>
           </div>
@@ -576,9 +1173,9 @@ export const TestEngine: React.FC<TestEngineProps> = ({
 
       {/* Main Question Workspace */}
       <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 mt-4 sm:mt-6 space-y-3">
-        {/* Level Encouragement Card (tailored for SD vs SMP vs SMA) */}
+        {/* Level Encouragement & Font Control Bar */}
         <div
-          className={`px-3.5 py-2 rounded-xl border flex items-center justify-between text-xs transition-colors ${
+          className={`px-3.5 py-2 rounded-xl border flex flex-wrap items-center justify-between gap-2 text-xs transition-colors ${
             level === 'SD'
               ? 'bg-amber-50/90 border-amber-200 text-amber-900'
               : level === 'SMP'
@@ -590,17 +1187,17 @@ export const TestEngine: React.FC<TestEngineProps> = ({
             <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
             <span className="font-semibold">
               {level === 'SD'
-                ? 'Semangat, Sobat Cilik! Baca soal dengan tenang & teliti ya. Tidak perlu terburu-buru.'
+                ? 'Semangat, Sobat Cilik! Baca soal dengan tenang & tetap di halaman ini sampai selesai.'
                 : level === 'SMP'
-                ? 'Asesmen Diagnostik SMP/MTs: Teliti setiap pertanyaan dan optimalkan ketepatan pilihanmu.'
-                : 'Asesmen Diagnostik SMA/MA/SMK: Kerjakan dengan konsentrasi penuh dan manajemen waktu terbaik.'}
+                ? 'Asesmen Diagnostik SMP/MTs: Teliti setiap soal dan tetap fokus pada halaman asesmen.'
+                : 'Asesmen Diagnostik SMA/MA/SMK: Kerjakan dengan konsentrasi penuh tanpa berpindah tab/aplikasi.'}
             </span>
           </div>
 
-          {/* Quick Font Size Switcher for Accessibility & Comfort */}
           <div className="flex items-center gap-1 shrink-0 bg-white/80 border border-slate-200/80 rounded-lg p-0.5">
-            <span className="text-[10px] font-bold text-slate-500 px-1 hidden sm:inline flex items-center gap-0.5">
-              <Type className="w-3 h-3" /> Ukuran Teks:
+            <span className="text-[10px] font-bold text-slate-500 px-1 hidden sm:inline items-center gap-0.5">
+              <Type className="w-3 h-3 inline mr-0.5" />
+              Ukuran Teks:
             </span>
             <button
               type="button"
@@ -608,7 +1205,6 @@ export const TestEngine: React.FC<TestEngineProps> = ({
               className={`px-1.5 py-0.5 text-[11px] font-bold rounded-md cursor-pointer transition ${
                 fontSize === 'normal' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
               }`}
-              title="Ukuran Standar (SMA)"
             >
               A
             </button>
@@ -618,7 +1214,6 @@ export const TestEngine: React.FC<TestEngineProps> = ({
               className={`px-1.5 py-0.5 text-xs font-bold rounded-md cursor-pointer transition ${
                 fontSize === 'large' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
               }`}
-              title="Ukuran Sedang (SMP/SD)"
             >
               A+
             </button>
@@ -628,7 +1223,6 @@ export const TestEngine: React.FC<TestEngineProps> = ({
               className={`px-1.5 py-0.5 text-sm font-bold rounded-md cursor-pointer transition ${
                 fontSize === 'xlarge' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
               }`}
-              title="Ukuran Ekstra Besar (Ramah Anak SD)"
             >
               A++
             </button>
@@ -637,7 +1231,6 @@ export const TestEngine: React.FC<TestEngineProps> = ({
 
         {/* Question Container Card */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-8 space-y-5 sm:space-y-6">
-          {/* Question Meta Bar */}
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 gap-2">
             <div className="flex items-center gap-2">
               <span className="text-xs sm:text-sm font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-xl border border-indigo-100">
@@ -651,7 +1244,9 @@ export const TestEngine: React.FC<TestEngineProps> = ({
             {answers[currentQuestion.id] ? (
               <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl flex items-center gap-1.5 shrink-0">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Pilihan Kamu: <strong>{answers[currentQuestion.id]}</strong></span>
+                <span>
+                  Pilihan Kamu: <strong>{answers[currentQuestion.id]}</strong>
+                </span>
               </span>
             ) : (
               <span className="text-xs text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1 rounded-xl font-medium shrink-0">
@@ -660,13 +1255,11 @@ export const TestEngine: React.FC<TestEngineProps> = ({
             )}
           </div>
 
-          {/* Question Content */}
           <div className="space-y-4">
             <div className={`font-semibold text-slate-800 whitespace-pre-line ${questionTextClass}`}>
               {currentQuestion.text}
             </div>
 
-            {/* Diagram for figural questions in Session 4 */}
             {currentQuestion.type === 'image' && (
               <div className="my-3 p-3 bg-slate-50/80 rounded-2xl border border-slate-200 overflow-x-auto max-w-full">
                 <div className="text-xs text-slate-500 font-semibold mb-2 flex items-center gap-1.5">
@@ -678,7 +1271,6 @@ export const TestEngine: React.FC<TestEngineProps> = ({
             )}
           </div>
 
-          {/* Options List */}
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
               <p className="text-xs font-bold text-slate-500 tracking-wider uppercase">Pilihan Jawaban :</p>
@@ -700,7 +1292,6 @@ export const TestEngine: React.FC<TestEngineProps> = ({
                         : 'bg-white border-slate-200 hover:border-slate-300 text-slate-800 hover:bg-slate-50/80'
                     }`}
                   >
-                    {/* Tactile Option Badge */}
                     <div
                       className={`rounded-xl flex items-center justify-center font-extrabold shrink-0 transition-all ${optionBadgeClass} ${
                         isSelected
@@ -717,9 +1308,7 @@ export const TestEngine: React.FC<TestEngineProps> = ({
                         <span className={optionTextClass}>{opt.text}</span>
                       </div>
                     ) : (
-                      <span className={`flex-1 leading-snug ${optionTextClass}`}>
-                        {opt.text}
-                      </span>
+                      <span className={`flex-1 leading-snug ${optionTextClass}`}>{opt.text}</span>
                     )}
 
                     {isSelected && (
@@ -744,12 +1333,13 @@ export const TestEngine: React.FC<TestEngineProps> = ({
               <span>Sebelumnya (◄)</span>
             </button>
 
-            {/* Middle: Save Status indicator */}
             <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
               <HardDrive className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Draft tersimpan otomatis</span>
+              <span>Tersimpan Lokal & Cloud</span>
               <span className="text-slate-400">•</span>
-              <span>Sisa: <strong className="text-amber-700">{remainingCount} Soal</strong></span>
+              <span>
+                Sisa: <strong className="text-amber-700">{remainingCount} Soal</strong>
+              </span>
             </div>
 
             <button
@@ -762,9 +1352,10 @@ export const TestEngine: React.FC<TestEngineProps> = ({
           </div>
         </div>
 
-        {/* Small Footer Notice */}
         <div className="text-center text-[11px] text-slate-400 py-2">
-          <span>Semua jawaban otomatis tersimpan di perangkat lokal. Tidak perlu takut kehilangan progres saat koneksi terputus.</span>
+          <span>
+            Semua jawaban tersimpan otomatis di perangkat dan tersinkronisasi real-time ke database. Jangan keluar halaman selama asesmen berlangsung.
+          </span>
           <p className="font-semibold text-slate-600 pt-1">@copyright Pak GuruAI</p>
         </div>
       </div>
@@ -780,7 +1371,6 @@ export const TestEngine: React.FC<TestEngineProps> = ({
           <span>Sebelumnya</span>
         </button>
 
-        {/* Center: Tap to open drawer + clear remaining questions count */}
         <button
           type="button"
           onClick={() => setIsPaletteOpen(true)}
@@ -809,14 +1399,14 @@ export const TestEngine: React.FC<TestEngineProps> = ({
       {isPaletteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
-            {/* Drawer Header */}
             <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-100 bg-slate-50/50">
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-slate-900">
                   Palet Navigasi Soal (Jenjang {level})
                 </h3>
                 <p className="text-[11px] sm:text-xs text-slate-500">
-                  Terjawab: <span className="font-bold text-emerald-700">{answeredCount}</span> | Tersisa: <span className="font-bold text-amber-700">{remainingCount}</span> dari {totalQuestions} Soal
+                  Terjawab: <span className="font-bold text-emerald-700">{answeredCount}</span> | Tersisa:{' '}
+                  <span className="font-bold text-amber-700">{remainingCount}</span> dari {totalQuestions} Soal
                 </p>
               </div>
               <button
@@ -827,7 +1417,6 @@ export const TestEngine: React.FC<TestEngineProps> = ({
               </button>
             </div>
 
-            {/* Legend */}
             <div className="px-4 sm:px-6 py-2 bg-slate-100 border-b border-slate-200/80 flex items-center justify-between text-[10px] sm:text-xs font-medium text-slate-600">
               <div className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded bg-indigo-600 inline-block" />
@@ -843,43 +1432,46 @@ export const TestEngine: React.FC<TestEngineProps> = ({
               </div>
             </div>
 
-            {/* Questions Grid per Session */}
             <div className="p-4 sm:px-6 py-4 overflow-y-auto space-y-5">
               {sessionsInfo.map((s, idx) => (
                 <div key={s.session} className="space-y-2">
                   <div className="flex justify-between items-center text-xs font-bold text-slate-700 border-b border-slate-100 pb-1">
                     <span>{s.name}</span>
-                    <span className="text-slate-400 text-[11px]">Soal #{s.startQuestion} - #{s.endQuestion}</span>
+                    <span className="text-slate-400 text-[11px]">
+                      Soal #{s.startQuestion} - #{s.endQuestion}
+                    </span>
                   </div>
                   <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5 sm:gap-2">
-                    {questions.filter((q) => q.session === s.session).map((q) => {
-                      const isAnswered = !!answers[q.id];
-                      const isCurrent = q.id === currentQuestionId;
-                      return (
-                        <button
-                          key={q.id}
-                          onClick={() => {
-                            setCurrentSessionIndex(idx);
-                            setCurrentQuestionId(q.id);
-                            setIsPaletteOpen(false);
-                          }}
-                          className={`h-9 sm:h-10 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center cursor-pointer touch-manipulation ${
-                            isCurrent
-                              ? 'ring-2 ring-indigo-600 bg-indigo-600 text-white shadow-sm'
-                              : isAnswered
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
-                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                          }`}
-                        >
-                          <span>{q.id}</span>
-                          {answers[q.id] && !isCurrent && (
-                            <span className="text-[9px] font-bold text-emerald-900 leading-none">
-                              {answers[q.id]}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
+                    {questions
+                      .filter((q) => q.session === s.session)
+                      .map((q) => {
+                        const isAnswered = !!answers[q.id];
+                        const isCurrent = q.id === currentQuestionId;
+                        return (
+                          <button
+                            key={q.id}
+                            onClick={() => {
+                              setCurrentSessionIndex(idx);
+                              setCurrentQuestionId(q.id);
+                              setIsPaletteOpen(false);
+                            }}
+                            className={`h-9 sm:h-10 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center cursor-pointer touch-manipulation ${
+                              isCurrent
+                                ? 'ring-2 ring-indigo-600 bg-indigo-600 text-white shadow-sm'
+                                : isAnswered
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            <span>{q.id}</span>
+                            {answers[q.id] && !isCurrent && (
+                              <span className="text-[9px] font-bold text-emerald-900 leading-none">
+                                {answers[q.id]}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                   </div>
                 </div>
               ))}
@@ -902,7 +1494,6 @@ export const TestEngine: React.FC<TestEngineProps> = ({
               </div>
             </div>
 
-            {/* Error Notice if submission failed */}
             {submitError && (
               <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs space-y-1">
                 <div className="flex items-center gap-2 font-bold text-rose-900">
@@ -913,11 +1504,10 @@ export const TestEngine: React.FC<TestEngineProps> = ({
               </div>
             )}
 
-            {/* Auto-save Security Confirmation */}
             <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center gap-2.5">
               <HardDrive className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>
-                <strong>Perlindungan Jawaban:</strong> Seluruh {answeredCount} jawaban Anda telah tercatat aman di penyimpanan lokal perangkat (Local Storage).
+                <strong>Perlindungan Jawaban:</strong> Seluruh {answeredCount} jawaban Anda telah tercatat aman di Local Storage dan tersinkronisasi ke database.
               </span>
             </div>
 
@@ -928,7 +1518,9 @@ export const TestEngine: React.FC<TestEngineProps> = ({
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600">Jenjang Asesmen :</span>
-                <span className="font-bold text-indigo-700">{level} ({student.grade})</span>
+                <span className="font-bold text-indigo-700">
+                  {level} ({student.grade})
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600">Nomor Registrasi :</span>
@@ -961,7 +1553,6 @@ export const TestEngine: React.FC<TestEngineProps> = ({
               </div>
             )}
 
-            {/* Mandatory Checkbox */}
             <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
@@ -976,7 +1567,6 @@ export const TestEngine: React.FC<TestEngineProps> = ({
               </label>
             </div>
 
-            {/* Modal Actions */}
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 type="button"

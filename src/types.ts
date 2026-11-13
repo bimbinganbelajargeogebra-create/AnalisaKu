@@ -13,8 +13,33 @@ export interface Student {
   parentPhone: string;
   username: string;
   password: string;
-  status: 'registered' | 'in_progress' | 'submitted' | 'evaluated';
+  status: 'registered' | 'in_progress' | 'locked' | 'submitted' | 'evaluated';
   createdAt: string;
+}
+
+export interface TestSessionState {
+  studentId: string;
+  regNumber: string;
+  username: string;
+  fullName: string;
+  educationLevel: EducationLevel;
+  schoolOrigin: string;
+  grade: string;
+  answers: Record<number, string>;
+  answeredCount: number;
+  currentQuestionId: number;
+  currentSessionIndex: number;
+  violationCount: number;
+  isLocked: boolean;
+  lockedAt?: string;
+  lockReason?: string;
+  unlockRequested?: boolean;
+  unlockRequestNote?: string;
+  unlockRequestedAt?: string;
+  unlockedByAdmin?: boolean;
+  unlockedAt?: string;
+  status: 'in_progress' | 'locked' | 'completed';
+  updatedAt: string;
 }
 
 export interface Question {
@@ -50,6 +75,9 @@ export interface TestSubmission {
   dataConfirmed: boolean;
   submittedAt: string;
   status: 'pending' | 'analyzed';
+  completionStatus?: 'completed' | 'locked_violation';
+  violationCount?: number;
+  terminationReason?: string;
 }
 
 export interface MultipleIntelligenceScores {
@@ -126,6 +154,9 @@ export interface TestResult {
   psychologyTrends: PsychologyTrends;
   isReleased: boolean;
   evaluatedAt: string;
+  completionStatus?: 'completed' | 'locked_violation';
+  violationCount?: number;
+  terminationReason?: string;
 }
 
 export interface InstitutionSettings {

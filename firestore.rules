@@ -31,5 +31,10 @@ service cloud.firestore {
     match /results/{resultId} {
       allow read, write: if isValidId(resultId);
     }
+
+    // Real-time Test Sessions (progress, focus violation count, lock/unlock state)
+    match /test_sessions/{sessionId} {
+      allow read, write: if isValidId(sessionId);
+    }
   }
 }

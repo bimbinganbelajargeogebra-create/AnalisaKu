@@ -337,5 +337,8 @@ export function evaluateSubmission(submission: TestSubmission): TestResult {
     psychologyTrends,
     isReleased: false,
     evaluatedAt: new Date().toISOString(),
+    completionStatus: submission.completionStatus || 'completed',
+    violationCount: submission.violationCount || 0,
+    ...(submission.terminationReason ? { terminationReason: submission.terminationReason } : {}),
   };
 }

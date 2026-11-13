@@ -15,6 +15,7 @@ import {
   InstitutionSettings,
   Student,
   TestResult,
+  TestSessionState,
   TestSubmission,
 } from '../types';
 import { evaluateSubmission } from '../utils/diagnosticEvaluator';
@@ -37,6 +38,10 @@ const LOCAL_STORAGE_KEY_SETTINGS = 'diagnostic_app_settings';
 const LOCAL_STORAGE_KEY_STUDENTS = 'diagnostic_app_students';
 const LOCAL_STORAGE_KEY_SUBMISSIONS = 'diagnostic_app_submissions';
 const LOCAL_STORAGE_KEY_RESULTS = 'diagnostic_app_results';
+const LOCAL_STORAGE_KEY_SESSIONS = 'diagnostic_app_test_sessions';
+
+export const LOCK_TERMINATION_REASON =
+  'Tidak dapat menyelesaikan tes karena keluar dari halaman tes sebanyak 3 kali.';
 
 // Local storage helpers for instantaneous offline resilience
 function getLocal<T>(key: string, defaultVal: T): T {
@@ -209,7 +214,6 @@ export async function loginStudent(username: string, password: string): Promise<
       const match = docSnap.data() as Student;
       if (match.password === normPass) {
         match.id = docSnap.id;
-        // Keep local cache in sync
         const localList = getLocal<Student[]>(LOCAL_STORAGE_KEY_STUDENTS, []);
         const idx = localList.findIndex((s) => s.id === match.id || s.username.toLowerCase() === normUser);
         if (idx >= 0) {
@@ -288,21 +292,276 @@ export async function deleteStudent(studentId: string): Promise<void> {
   delete localSubs[studentId];
   setLocal(LOCAL_STORAGE_KEY_SUBMISSIONS, localSubs);
 
+  const localSessions = getLocal<Record<string, TestSessionState>>(LOCAL_STORAGE_KEY_SESSIONS, {});
+  delete localSessions[studentId];
+  setLocal(LOCAL_STORAGE_KEY_SESSIONS, localSessions);
+
   await Promise.all([
     deleteDoc(doc(db, 'students', studentId)),
     deleteDoc(doc(db, 'submissions', studentId)),
     deleteDoc(doc(db, 'results', studentId)),
+    deleteDoc(doc(db, 'test_sessions', studentId)),
   ]);
 }
 
-// 3. TEST SUBMISSION, EVALUATION & REAL-TIME RESULT SUBSCRIPTIONS
+// 3. REAL-TIME TEST SESSION (FOCUS LOCK, VIOLATIONS, ADMIN UNLOCK)
+export async function saveTestSessionProgress(
+  sessionData: Omit<TestSessionState, 'updatedAt'>
+): Promise<TestSessionState> {
+  const payload: TestSessionState = sanitizeForFirestore({
+    ...sessionData,
+    updatedAt: new Date().toISOString(),
+  });
+
+  const localSessions = getLocal<Record<string, TestSessionState>>(LOCAL_STORAGE_KEY_SESSIONS, {});
+  localSessions[payload.studentId] = payload;
+  setLocal(LOCAL_STORAGE_KEY_SESSIONS, localSessions);
+
+  try {
+    await Promise.all([
+      setDoc(doc(db, 'test_sessions', payload.studentId), payload, { merge: true }),
+      setDoc(
+        doc(db, 'students', payload.studentId),
+        { status: payload.isLocked ? 'locked' : 'in_progress' },
+        { merge: true }
+      ),
+    ]);
+  } catch (err) {
+    console.warn('Firestore session progress sync notice:', err);
+  }
+
+  return payload;
+}
+
+export async function lockTestSessionAndGenerateResult(
+  sessionData: Omit<TestSessionState, 'updatedAt' | 'isLocked' | 'status'>
+): Promise<{ session: TestSessionState; submission: TestSubmission; result: TestResult }> {
+  const nowIso = new Date().toISOString();
+  const lockedSession: TestSessionState = sanitizeForFirestore({
+    ...sessionData,
+    isLocked: true,
+    lockedAt: nowIso,
+    lockReason: LOCK_TERMINATION_REASON,
+    status: 'locked',
+    updatedAt: nowIso,
+  });
+
+  // Save locked session locally
+  const localSessions = getLocal<Record<string, TestSessionState>>(LOCAL_STORAGE_KEY_SESSIONS, {});
+  localSessions[lockedSession.studentId] = lockedSession;
+  setLocal(LOCAL_STORAGE_KEY_SESSIONS, localSessions);
+
+  // Build submission & auto-generate evaluation result with violation notice
+  const submission: TestSubmission = sanitizeForFirestore({
+    studentId: lockedSession.studentId,
+    regNumber: lockedSession.regNumber,
+    username: lockedSession.username,
+    fullName: lockedSession.fullName,
+    educationLevel: lockedSession.educationLevel,
+    schoolOrigin: lockedSession.schoolOrigin,
+    grade: lockedSession.grade,
+    answers: lockedSession.answers || {},
+    dataConfirmed: false,
+    submittedAt: nowIso,
+    status: 'analyzed',
+    completionStatus: 'locked_violation',
+    violationCount: lockedSession.violationCount,
+    terminationReason: LOCK_TERMINATION_REASON,
+  });
+
+  const calculatedResult = sanitizeForFirestore(evaluateSubmission(submission));
+  const settings = await getInstitutionSettings();
+  let isReleased = false;
+  if (settings.resultReleaseMode === 'instant') {
+    isReleased = true;
+  } else if (settings.resultReleaseMode === 'scheduled' && settings.resultReleaseDate) {
+    if (Date.now() >= new Date(settings.resultReleaseDate).getTime()) {
+      isReleased = true;
+    }
+  }
+  calculatedResult.isReleased = isReleased;
+
+  // Save locally
+  const localSubs = getLocal<Record<string, TestSubmission>>(LOCAL_STORAGE_KEY_SUBMISSIONS, {});
+  localSubs[lockedSession.studentId] = submission;
+  setLocal(LOCAL_STORAGE_KEY_SUBMISSIONS, localSubs);
+
+  const localResults = getLocal<Record<string, TestResult>>(LOCAL_STORAGE_KEY_RESULTS, {});
+  localResults[lockedSession.studentId] = calculatedResult;
+  setLocal(LOCAL_STORAGE_KEY_RESULTS, localResults);
+
+  const localStudents = getLocal<Student[]>(LOCAL_STORAGE_KEY_STUDENTS, []);
+  const stdIdx = localStudents.findIndex((s) => s.id === lockedSession.studentId);
+  if (stdIdx >= 0) {
+    localStudents[stdIdx].status = 'locked';
+    setLocal(LOCAL_STORAGE_KEY_STUDENTS, localStudents);
+  }
+
+  // Sync all 4 documents to Firestore immediately
+  await Promise.all([
+    setDoc(doc(db, 'test_sessions', lockedSession.studentId), lockedSession),
+    setDoc(doc(db, 'submissions', lockedSession.studentId), submission),
+    setDoc(doc(db, 'results', lockedSession.studentId), calculatedResult),
+    setDoc(doc(db, 'students', lockedSession.studentId), { status: 'locked' }, { merge: true }),
+  ]);
+
+  return { session: lockedSession, submission, result: calculatedResult };
+}
+
+export async function requestSessionUnlock(studentId: string, note: string): Promise<void> {
+  const nowIso = new Date().toISOString();
+  const patch = sanitizeForFirestore({
+    unlockRequested: true,
+    unlockRequestNote: note.trim() || 'Mohon izin membuka kunci ujian agar dapat melanjutkan tes.',
+    unlockRequestedAt: nowIso,
+    updatedAt: nowIso,
+  });
+
+  const localSessions = getLocal<Record<string, TestSessionState>>(LOCAL_STORAGE_KEY_SESSIONS, {});
+  if (localSessions[studentId]) {
+    localSessions[studentId] = { ...localSessions[studentId], ...patch };
+    setLocal(LOCAL_STORAGE_KEY_SESSIONS, localSessions);
+  }
+
+  await setDoc(doc(db, 'test_sessions', studentId), patch, { merge: true });
+}
+
+export async function unlockTestSessionByAdmin(studentId: string): Promise<void> {
+  const nowIso = new Date().toISOString();
+  const unlockPatch = sanitizeForFirestore({
+    isLocked: false,
+    violationCount: 0,
+    status: 'in_progress' as const,
+    lockReason: '',
+    unlockRequested: false,
+    unlockedByAdmin: true,
+    unlockedAt: nowIso,
+    updatedAt: nowIso,
+  });
+
+  // Update local caches
+  const localSessions = getLocal<Record<string, TestSessionState>>(LOCAL_STORAGE_KEY_SESSIONS, {});
+  if (localSessions[studentId]) {
+    localSessions[studentId] = { ...localSessions[studentId], ...unlockPatch };
+    setLocal(LOCAL_STORAGE_KEY_SESSIONS, localSessions);
+  }
+
+  const localStudents = getLocal<Student[]>(LOCAL_STORAGE_KEY_STUDENTS, []);
+  const stdIdx = localStudents.findIndex((s) => s.id === studentId);
+  if (stdIdx >= 0) {
+    localStudents[stdIdx].status = 'in_progress';
+    setLocal(LOCAL_STORAGE_KEY_STUDENTS, localStudents);
+  }
+
+  // Clear preliminary locked result/submission so student completes normally
+  const localResults = getLocal<Record<string, TestResult>>(LOCAL_STORAGE_KEY_RESULTS, {});
+  delete localResults[studentId];
+  setLocal(LOCAL_STORAGE_KEY_RESULTS, localResults);
+
+  const localSubs = getLocal<Record<string, TestSubmission>>(LOCAL_STORAGE_KEY_SUBMISSIONS, {});
+  delete localSubs[studentId];
+  setLocal(LOCAL_STORAGE_KEY_SUBMISSIONS, localSubs);
+
+  await Promise.all([
+    setDoc(doc(db, 'test_sessions', studentId), unlockPatch, { merge: true }),
+    setDoc(doc(db, 'students', studentId), { status: 'in_progress' }, { merge: true }),
+    deleteDoc(doc(db, 'results', studentId)),
+    deleteDoc(doc(db, 'submissions', studentId)),
+  ]);
+}
+
+export async function getTestSession(studentId: string): Promise<TestSessionState | null> {
+  try {
+    const snap = await getDoc(doc(db, 'test_sessions', studentId));
+    if (snap.exists()) {
+      const data = snap.data() as TestSessionState;
+      const localSessions = getLocal<Record<string, TestSessionState>>(LOCAL_STORAGE_KEY_SESSIONS, {});
+      localSessions[studentId] = data;
+      setLocal(LOCAL_STORAGE_KEY_SESSIONS, localSessions);
+      return data;
+    }
+  } catch (err) {
+    console.warn('Fallback checking local test session:', err);
+  }
+  const localSessions = getLocal<Record<string, TestSessionState>>(LOCAL_STORAGE_KEY_SESSIONS, {});
+  return localSessions[studentId] || null;
+}
+
+export function subscribeTestSession(
+  studentId: string,
+  onData: (session: TestSessionState | null) => void,
+  onStatus?: (status: FirebaseSyncStatus, errorMsg?: string) => void
+): Unsubscribe {
+  onStatus?.('connecting');
+  return onSnapshot(
+    doc(db, 'test_sessions', studentId),
+    { includeMetadataChanges: true },
+    (snap) => {
+      const status: FirebaseSyncStatus = snap.metadata.fromCache ? 'cache' : 'live';
+      onStatus?.(status);
+
+      if (snap.exists()) {
+        const data = snap.data() as TestSessionState;
+        const localSessions = getLocal<Record<string, TestSessionState>>(LOCAL_STORAGE_KEY_SESSIONS, {});
+        localSessions[studentId] = data;
+        setLocal(LOCAL_STORAGE_KEY_SESSIONS, localSessions);
+        onData(data);
+      } else {
+        onData(null);
+      }
+    },
+    (error) => {
+      console.error('Firestore test_session subscription error:', error);
+      onStatus?.('error', error.message);
+      const localSessions = getLocal<Record<string, TestSessionState>>(LOCAL_STORAGE_KEY_SESSIONS, {});
+      onData(localSessions[studentId] || null);
+    }
+  );
+}
+
+export function subscribeAllTestSessions(
+  onData: (sessions: TestSessionState[]) => void,
+  onStatus?: (status: FirebaseSyncStatus, errorMsg?: string) => void
+): Unsubscribe {
+  onStatus?.('connecting');
+  return onSnapshot(
+    collection(db, 'test_sessions'),
+    { includeMetadataChanges: true },
+    (snap) => {
+      const status: FirebaseSyncStatus = snap.metadata.fromCache ? 'cache' : 'live';
+      onStatus?.(status);
+
+      const list: TestSessionState[] = [];
+      const cacheMap: Record<string, TestSessionState> = {};
+      snap.forEach((d) => {
+        const data = d.data() as TestSessionState;
+        list.push(data);
+        cacheMap[d.id] = data;
+      });
+      list.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+      setLocal(LOCAL_STORAGE_KEY_SESSIONS, cacheMap);
+      onData(list);
+    },
+    (error) => {
+      console.error('Firestore all test_sessions subscription error:', error);
+      onStatus?.('error', error.message);
+      const localSessions = getLocal<Record<string, TestSessionState>>(LOCAL_STORAGE_KEY_SESSIONS, {});
+      onData(Object.values(localSessions));
+    }
+  );
+}
+
+// 4. TEST SUBMISSION, EVALUATION & REAL-TIME RESULT SUBSCRIPTIONS
 export async function submitTestAnswers(
   submissionData: Omit<TestSubmission, 'id' | 'submittedAt' | 'status'>
 ): Promise<{ submission: TestSubmission; result: TestResult }> {
+  const nowIso = new Date().toISOString();
   const submission: TestSubmission = sanitizeForFirestore({
     ...submissionData,
-    submittedAt: new Date().toISOString(),
+    submittedAt: nowIso,
     status: 'analyzed',
+    completionStatus: submissionData.completionStatus || 'completed',
+    violationCount: submissionData.violationCount || 0,
   });
 
   const studentId = submission.studentId;
@@ -345,11 +604,38 @@ export async function submitTestAnswers(
     setLocal(LOCAL_STORAGE_KEY_STUDENTS, localStudents);
   }
 
-  // Sync directly to Firestore (throws if network/Firestore is unavailable so draft stays protected)
+  const localSessions = getLocal<Record<string, TestSessionState>>(LOCAL_STORAGE_KEY_SESSIONS, {});
+  if (localSessions[studentId]) {
+    localSessions[studentId].status = 'completed';
+    localSessions[studentId].isLocked = false;
+    localSessions[studentId].updatedAt = nowIso;
+    setLocal(LOCAL_STORAGE_KEY_SESSIONS, localSessions);
+  }
+
+  // Sync directly to Firestore
   await Promise.all([
     setDoc(doc(db, 'submissions', studentId), submission),
     setDoc(doc(db, 'results', studentId), calculatedResult),
     setDoc(doc(db, 'students', studentId), { status: 'evaluated' }, { merge: true }),
+    setDoc(
+      doc(db, 'test_sessions', studentId),
+      {
+        studentId,
+        regNumber: submission.regNumber,
+        username: submission.username,
+        fullName: submission.fullName,
+        educationLevel: submission.educationLevel,
+        schoolOrigin: submission.schoolOrigin,
+        grade: submission.grade,
+        answers: submission.answers,
+        answeredCount: Object.keys(submission.answers || {}).length,
+        isLocked: false,
+        status: 'completed',
+        violationCount: submission.violationCount || 0,
+        updatedAt: nowIso,
+      },
+      { merge: true }
+    ),
   ]);
 
   return { submission, result: calculatedResult };

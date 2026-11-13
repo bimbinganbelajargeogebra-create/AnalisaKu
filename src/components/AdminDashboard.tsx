@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { EducationLevel, InstitutionSettings, Student, TestResult } from '../types';
+import { EducationLevel, InstitutionSettings, Student, TestResult, TestSessionState } from '../types';
 import {
   FirebaseSyncStatus,
   getAllStudents,
   getAllResults,
   subscribeAllStudents,
   subscribeAllResults,
+  subscribeAllTestSessions,
+  unlockTestSessionByAdmin,
   updateInstitutionSettings,
   registerStudent,
   deleteStudent,
@@ -38,6 +40,10 @@ import {
   RefreshCw,
   Database,
   ShieldCheck,
+  Lock,
+  Unlock,
+  AlertTriangle,
+  Activity,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -55,9 +61,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onPreviewStudentResult,
   onDirectTestStudent,
 }) => {
-  const [activeTab, setActiveTab] = useState<'results' | 'students' | 'settings'>('results');
+  const [activeTab, setActiveTab] = useState<'results' | 'monitoring' | 'students' | 'settings'>('results');
   const [students, setStudents] = useState<Student[]>([]);
   const [results, setResults] = useState<TestResult[]>([]);
+  const [testSessions, setTestSessions] = useState<TestSessionState[]>([]);
+  const [unlockingId, setUnlockingId] = useState<string | null>(null);
+  const [unlockFeedback, setUnlockFeedback] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [levelFilter, setLevelFilter] = useState<'ALL' | 'SD' | 'SMP' | 'SMA'>('ALL');
   const [loading, setLoading] = useState(false);
@@ -144,9 +153,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
     );
 
+    const unsubSessions = subscribeAllTestSessions(
+      (list) => {
+        setTestSessions(list);
+        setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
+      },
+      (status) => {
+        setSyncStatus(status);
+      }
+    );
+
     return () => {
       unsubStudents();
       unsubResults();
+      unsubSessions();
     };
   }, []);
 
@@ -250,6 +270,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     doc.save(`Laporan_Diagnostik_${res.educationLevel}_${safeName}_${res.regNumber}.pdf`);
   };
 
+  const handleUnlockSession = async (studentId: string, studentName: string) => {
+    setUnlockingId(studentId);
+    try {
+      await unlockTestSessionByAdmin(studentId);
+      setUnlockFeedback(`Kunci tes ${studentName} berhasil dibuka! Siswa dapat langsung melanjutkan pengerjaan tes secara real-time.`);
+      setTimeout(() => setUnlockFeedback(null), 5000);
+    } catch (err) {
+      alert('Gagal membuka kunci tes: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setUnlockingId(null);
+    }
+  };
+
   // Filtered Results
   const filteredResults = results.filter((r) => {
     const matchQuery =
@@ -266,6 +299,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.schoolOrigin.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchLevel = levelFilter === 'ALL' || (s.educationLevel || 'SMA') === levelFilter;
+    return matchQuery && matchLevel;
+  });
+
+  const lockedSessions = testSessions.filter((s) => s.isLocked);
+  const filteredSessions = testSessions.filter((s) => {
+    const matchQuery =
+      (s.fullName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.regNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.schoolOrigin || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchLevel = levelFilter === 'ALL' || (s.educationLevel || 'SMA') === levelFilter;
     return matchQuery && matchLevel;
   });
@@ -357,6 +400,74 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       </div>
 
+      {/* Real-time Locked Sessions Alert Banner */}
+      {unlockFeedback && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-900 text-xs sm:text-sm font-semibold flex items-center gap-2.5 shadow-xs">
+          <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+          <span>{unlockFeedback}</span>
+        </div>
+      )}
+
+      {lockedSessions.length > 0 && (
+        <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-4 sm:p-5 space-y-3 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-rose-950">
+                  Peringatan Pengawasan Real-Time: {lockedSessions.length} Siswa Terkunci (&gt;3x Keluar Halaman Tes)
+                </h3>
+                <p className="text-xs text-rose-800">
+                  Jawaban sementara sudah diamankan ke Firebase. Buka kunci agar siswa dapat melanjutkan tes, atau biarkan untuk tetap menggunakan laporan hasil yang digenerate.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {lockedSessions.map((sess) => (
+              <div
+                key={sess.studentId}
+                className="bg-white border border-rose-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div className="space-y-1 text-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-slate-900 text-sm">{sess.fullName}</span>
+                    <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold text-[10px]">
+                      {sess.educationLevel} • {sess.violationCount}x Keluar
+                    </span>
+                    {sess.unlockRequested && (
+                      <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-bold text-[10px] animate-pulse">
+                        Meminta Buka Kunci
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    No Reg: <span className="font-mono font-semibold text-slate-700">{sess.regNumber}</span> • Terjawab: <strong className="text-slate-800">{sess.answeredCount}/120</strong>
+                  </p>
+                  {sess.unlockRequestNote && (
+                    <p className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 italic">
+                      &ldquo;{sess.unlockRequestNote}&rdquo;
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => handleUnlockSession(sess.studentId, sess.fullName)}
+                  disabled={unlockingId === sess.studentId}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
+                >
+                  <Unlock className="w-3.5 h-3.5" />
+                  <span>{unlockingId === sess.studentId ? 'Membuka...' : 'Buka Kunci & Lanjut Tes'}</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex border-b border-slate-200 gap-2 sm:gap-6 overflow-x-auto">
         <button
@@ -369,6 +480,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         >
           <FileText className="w-4 h-4" />
           <span>Analisis & Hasil Siswa ({results.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('monitoring')}
+          className={`pb-3 text-xs sm:text-sm font-bold border-b-2 flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            activeTab === 'monitoring'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Activity className="w-4 h-4" />
+          <span>Pemantauan Sesi ({testSessions.length})</span>
+          {lockedSessions.length > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold">
+              {lockedSessions.length} Terkunci
+            </span>
+          )}
         </button>
 
         <button
@@ -397,7 +525,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </div>
 
       {/* Level Filter Bar */}
-      {(activeTab === 'results' || activeTab === 'students') && (
+      {(activeTab === 'results' || activeTab === 'students' || activeTab === 'monitoring') && (
         <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-3.5 rounded-xl border border-slate-200 text-xs">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-slate-400" />
@@ -506,6 +634,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <td className="py-3.5 px-4">
                           <p className="font-bold text-slate-900 text-sm">{res.fullName}</p>
                           <p className="font-mono text-[11px] text-slate-500">{res.regNumber}</p>
+                          {res.completionStatus === 'locked_violation' && (
+                            <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200 font-bold text-[10px]">
+                              <AlertTriangle className="w-3 h-3" />
+                              <span>Terkunci (&gt;3x Keluar Halaman)</span>
+                            </span>
+                          )}
                         </td>
                         <td className="py-3.5 px-4">
                           <p className="font-medium text-slate-800">{res.schoolOrigin}</p>
@@ -572,7 +706,146 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <Download className="w-3.5 h-3.5" />
                               <span className="hidden sm:inline">PDF</span>
                             </button>
+                            {res.completionStatus === 'locked_violation' && (
+                              <button
+                                onClick={() => handleUnlockSession(res.studentId, res.fullName)}
+                                disabled={unlockingId === res.studentId}
+                                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-lg transition flex items-center gap-1 cursor-pointer"
+                                title="Buka kunci agar siswa bisa melanjutkan tes dari soal terakhir"
+                              >
+                                <Unlock className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Buka Kunci</span>
+                              </button>
+                            )}
                           </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* TAB 1B: PEMANTAUAN SESI TES REAL-TIME & BUKA KUNCI         */}
+      {/* ========================================================= */}
+      {activeTab === 'monitoring' && (
+        <div className="space-y-4">
+          {filteredSessions.length === 0 ? (
+            <div className="bg-white p-12 text-center rounded-2xl border border-slate-200 space-y-3">
+              <Activity className="w-12 h-12 text-slate-300 mx-auto" />
+              <h3 className="text-base font-bold text-slate-700">Belum Ada Aktivitas Sesi Tes</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Progres jawaban, peringatan keluar halaman (maks. 3x), dan status kunci siswa akan tampil secara real-time di sini saat siswa mengerjakan asesmen.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-700">
+                  <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200">
+                    <tr>
+                      <th className="py-3.5 px-4">Jenjang</th>
+                      <th className="py-3.5 px-4">Siswa & No Reg</th>
+                      <th className="py-3.5 px-4">Progres Soal</th>
+                      <th className="py-3.5 px-4">Pelanggaran Fokus</th>
+                      <th className="py-3.5 px-4">Status Sesi</th>
+                      <th className="py-3.5 px-4 text-right">Kontrol Admin</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredSessions.map((sess) => (
+                      <tr
+                        key={sess.studentId}
+                        className={sess.isLocked ? 'bg-rose-50/60 hover:bg-rose-50 transition' : 'hover:bg-slate-50/80 transition'}
+                      >
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`inline-block px-2.5 py-1 rounded-md font-bold text-[10px] tracking-wide ${
+                              sess.educationLevel === 'SD'
+                                ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                                : sess.educationLevel === 'SMP'
+                                ? 'bg-indigo-100 text-indigo-900 border border-indigo-200'
+                                : 'bg-blue-100 text-blue-900 border border-blue-200'
+                            }`}
+                          >
+                            {sess.educationLevel || 'SMA'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <p className="font-bold text-slate-900 text-sm">{sess.fullName}</p>
+                          <p className="font-mono text-[11px] text-slate-500">
+                            {sess.regNumber} • {sess.schoolOrigin}
+                          </p>
+                          {sess.unlockRequestNote && sess.isLocked && (
+                            <p className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 mt-1 inline-block">
+                              Pesan siswa: &ldquo;{sess.unlockRequestNote}&rdquo;
+                            </p>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-slate-800">{sess.answeredCount} / 120 Soal</div>
+                          <div className="text-[10px] text-slate-500">
+                            Sesi {(sess.currentSessionIndex ?? 0) + 1} • Soal #{sess.currentQuestionId || 1}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold text-[11px] ${
+                              sess.violationCount > 3 || sess.isLocked
+                                ? 'bg-rose-100 text-rose-800'
+                                : sess.violationCount > 0
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            <AlertTriangle className="w-3 h-3" />
+                            <span>{sess.violationCount} / 3 Batas</span>
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {sess.isLocked ? (
+                            <div className="space-y-1">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-bold text-[10px]">
+                                <Lock className="w-3 h-3" />
+                                <span>TERKUNCI</span>
+                              </span>
+                              {sess.unlockRequested && (
+                                <span className="block text-[10px] font-bold text-amber-700">
+                                  Menunggu konfirmasi buka kunci
+                                </span>
+                              )}
+                            </div>
+                          ) : sess.status === 'completed' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                              <CheckCircle className="w-3 h-3" />
+                              <span>Selesai Tes</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800 font-bold text-[10px]">
+                              <Clock className="w-3 h-3" />
+                              <span>Sedang Mengerjakan</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          {sess.isLocked ? (
+                            <button
+                              onClick={() => handleUnlockSession(sess.studentId, sess.fullName)}
+                              disabled={unlockingId === sess.studentId}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-lg transition inline-flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Unlock className="w-3.5 h-3.5" />
+                              <span>{unlockingId === sess.studentId ? 'Membuka...' : 'Buka Kunci & Lanjut Tes'}</span>
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-slate-400">
+                              Update {new Date(sess.updatedAt).toLocaleTimeString('id-ID')}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -859,17 +1132,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </td>
                       <td className="py-3.5 px-4">
                         <span
-                          className={`inline-block px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold text-[10px] ${
                             std.status === 'evaluated'
                               ? 'bg-emerald-100 text-emerald-800'
+                              : std.status === 'locked'
+                              ? 'bg-rose-100 text-rose-800'
+                              : std.status === 'in_progress'
+                              ? 'bg-sky-100 text-sky-800'
                               : 'bg-blue-100 text-blue-800'
                           }`}
                         >
-                          {std.status === 'evaluated' ? 'Selesai Tes' : 'Belum Selesai'}
+                          {std.status === 'locked' && <Lock className="w-3 h-3" />}
+                          <span>
+                            {std.status === 'evaluated'
+                              ? 'Selesai Tes'
+                              : std.status === 'locked'
+                              ? 'Terkunci (>3x Keluar)'
+                              : std.status === 'in_progress'
+                              ? 'Sedang Tes'
+                              : 'Belum Selesai'}
+                          </span>
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          {std.status === 'locked' && (
+                            <button
+                              onClick={() => handleUnlockSession(std.id || std.username, std.fullName)}
+                              disabled={unlockingId === (std.id || std.username)}
+                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition flex items-center gap-1 cursor-pointer"
+                              title="Buka kunci sesi tes siswa"
+                            >
+                              <Unlock className="w-3.5 h-3.5" />
+                              <span>Buka Kunci</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => onDirectTestStudent(std)}
                             className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg transition cursor-pointer"

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { InstitutionSettings, Student, TestResult, TestSubmission } from './types';
 import {
   getStudentResult,
+  getTestSession,
   subscribeInstitutionSettings,
   subscribeStudentResult,
   submitTestAnswers,
@@ -83,9 +84,18 @@ export default function App() {
     setCurrentStudent(student);
     setIsAdmin(false);
 
-    // Fetch existing result
-    const res = await getStudentResult(student.id || student.username);
+    const studentKey = student.id || student.username;
+    const [res, session] = await Promise.all([
+      getStudentResult(studentKey),
+      getTestSession(studentKey),
+    ]);
     setCurrentResult(res);
+
+    // If test session is currently locked, return student to the locked screen so they can request/wait for Admin unlock or view generated result
+    if (session?.isLocked) {
+      setView('test');
+      return;
+    }
 
     if (res) {
       // Student already evaluated -> show results
@@ -161,9 +171,14 @@ export default function App() {
             institution={institution}
             currentStudent={currentStudent}
             onStartRegistration={() => setIsRegisterOpen(true)}
-            onStartTest={() => {
+            onStartTest={async () => {
               if (currentStudent) {
-                if (currentResult) {
+                const session = await getTestSession(currentStudent.id || currentStudent.username);
+                if (session?.isLocked) {
+                  setView('test');
+                } else if (currentResult && currentResult.completionStatus !== 'locked_violation') {
+                  setView('result');
+                } else if (currentResult && session?.status === 'completed') {
                   setView('result');
                 } else {
                   setView('test');
@@ -188,6 +203,10 @@ export default function App() {
             student={currentStudent}
             institution={institution}
             onSubmit={handleSubmitTest}
+            onLockedOutComplete={(lockedResult) => {
+              setCurrentResult(lockedResult);
+              setView('result');
+            }}
             onCancel={() => setView('landing')}
           />
         )}

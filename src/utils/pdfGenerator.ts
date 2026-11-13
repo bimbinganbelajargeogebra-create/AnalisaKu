@@ -61,8 +61,36 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
   const testDate = result.evaluatedAt ? new Date(result.evaluatedAt).toLocaleDateString('id-ID') : '-';
   doc.text(testDate, margin + 125, y + 10.5);
 
-  // Intelegensia Umum (IQ)
-  y += 25;
+  const isLockedViolation =
+    result.completionStatus === 'locked_violation' || Boolean(result.terminationReason);
+
+  if (isLockedViolation) {
+    y += 24;
+    doc.setFillColor(255, 241, 242);
+    doc.setDrawColor(225, 29, 72);
+    doc.roundedRect(margin, y, contentWidth, 9.5, 1.5, 1.5, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.2);
+    doc.setTextColor(159, 18, 57);
+    doc.text('STATUS PENGERJAAN: TERKUNCI OTOMATIS', margin + 4, y + 3.8);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(136, 19, 55);
+    const reasonText =
+      result.terminationReason ||
+      'Tidak dapat menyelesaikan tes karena keluar dari halaman tes sebanyak 3 kali.';
+    doc.text(
+      `Keterangan: ${reasonText} (${result.violationCount ?? 4}x keluar halaman)`,
+      margin + 4,
+      y + 7.6
+    );
+    y += 11.5;
+  } else {
+    // Intelegensia Umum (IQ)
+    y += 25;
+  }
   doc.setFillColor(30, 58, 138);
   doc.rect(margin, y, contentWidth, 5, 'F');
   doc.setFont('helvetica', 'bold');
@@ -201,7 +229,7 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
   });
 
   // Brain Analysis Section (With Anatomical Brain Lobe Image)
-  y = Math.max(149, y + 4 * 7.8 + 1);
+  y = Math.max(isLockedViolation ? 160 : 149, y + 4 * 7.8 + 1);
   doc.setFillColor(30, 58, 138);
   doc.rect(margin, y, contentWidth, 5, 'F');
   doc.setFont('helvetica', 'bold');

@@ -19,6 +19,8 @@ import {
   Layers,
   Database,
   ShieldCheck,
+  AlertTriangle,
+  Lock,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -183,6 +185,12 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
                 Jenjang {result.educationLevel || 'SMA'}
               </span>
+              {(result.completionStatus === 'locked_violation' || result.terminationReason) && (
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200 inline-flex items-center gap-1">
+                  <Lock className="w-3 h-3" />
+                  <span>Terkunci (&gt;3x Keluar)</span>
+                </span>
+              )}
             </div>
             <p className="text-xs sm:text-sm text-slate-500">
               ID Registrasi: <span className="font-mono font-semibold text-slate-800">{result.regNumber}</span>
@@ -247,6 +255,27 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Keterangan Penghentian / Terkunci Otomatis (>3x Keluar Halaman Tes) */}
+          {(result.completionStatus === 'locked_violation' || result.terminationReason) && (
+            <div className="bg-rose-50 border-2 border-rose-300 rounded-xl p-4 sm:p-5 flex items-start gap-3.5 text-rose-950 shadow-2xs">
+              <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wide text-rose-900">
+                  Keterangan Status Pengerjaan: Terkunci Otomatis
+                </h4>
+                <p className="text-xs sm:text-sm font-bold text-rose-800 leading-relaxed">
+                  {result.terminationReason ||
+                    'Tidak dapat menyelesaikan tes karena keluar dari halaman tes sebanyak 3 kali.'}
+                </p>
+                <p className="text-[11px] text-rose-700">
+                  Total pelanggaran meninggalkan halaman tes tercatat: <strong>{result.violationCount ?? 4} kali</strong>. Hasil analisis di bawah ini digenerate otomatis dari jawaban yang terakhir tersimpan di sistem.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* SECTION 1: Intelegensia Umum (IQ) */}
           <div className="space-y-2.5">

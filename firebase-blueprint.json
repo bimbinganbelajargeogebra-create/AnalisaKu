@@ -79,9 +79,39 @@
         "brainAnalysis": { "type": "object" },
         "psychologyTrends": { "type": "object" },
         "isReleased": { "type": "boolean" },
-        "evaluatedAt": { "type": "string", "maxLength": 50 }
+        "evaluatedAt": { "type": "string", "maxLength": 50 },
+        "completionStatus": { "type": "string", "enum": ["completed", "locked_violation"] },
+        "violationCount": { "type": "number" },
+        "terminationReason": { "type": "string", "maxLength": 300 }
       },
       "required": ["studentId", "regNumber", "fullName", "iqScore", "iqCategory", "isReleased"]
+    },
+    "TestSession": {
+      "title": "TestSession",
+      "description": "Sesi pengerjaan tes real-time, jumlah pelanggaran fokus, dan status kunci/buka kunci admin",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string", "maxLength": 100 },
+        "regNumber": { "type": "string", "maxLength": 50 },
+        "username": { "type": "string", "maxLength": 60 },
+        "fullName": { "type": "string", "maxLength": 150 },
+        "educationLevel": { "type": "string", "enum": ["SD", "SMP", "SMA"] },
+        "answers": { "type": "object" },
+        "answeredCount": { "type": "number" },
+        "currentQuestionId": { "type": "number" },
+        "currentSessionIndex": { "type": "number" },
+        "violationCount": { "type": "number" },
+        "isLocked": { "type": "boolean" },
+        "lockedAt": { "type": "string", "maxLength": 50 },
+        "lockReason": { "type": "string", "maxLength": 300 },
+        "unlockRequested": { "type": "boolean" },
+        "unlockRequestNote": { "type": "string", "maxLength": 300 },
+        "unlockedByAdmin": { "type": "boolean" },
+        "unlockedAt": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["in_progress", "locked", "completed"] },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["studentId", "regNumber", "violationCount", "isLocked", "status"]
     }
   },
   "firestore": {
@@ -100,6 +130,10 @@
     "/results/{resultId}": {
       "schema": { "$ref": "#/entities/TestResult" },
       "description": "Hasil evaluasi tes diagnostik dan laporan psikologis"
+    },
+    "/test_sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/TestSession" },
+      "description": "Rekaman real-time progres tes, pelanggaran keluar halaman, dan kunci ujian siswa"
     }
   }
 }
