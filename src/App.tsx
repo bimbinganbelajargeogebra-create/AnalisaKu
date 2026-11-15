@@ -23,10 +23,10 @@ export default function App() {
   const [currentResult, setCurrentResult] = useState<TestResult | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [institution, setInstitution] = useState<InstitutionSettings>({
-    institutionName: 'Lembaga Asesmen & Diagnostik Potensi Siswa',
+    institutionName: 'Lembaga Pemetaan Unlock Your Potential',
     address: 'Jl. Pendidikan Karakter No. 108, Kompleks Akademik',
     phone: '(021) 7890-1234 / 0812-9876-5432',
-    email: 'info@asesmendiagnostik.sch.id',
+    email: 'info@unlockyourpotential.sch.id',
     isTestOpen: true,
     testScheduleMode: 'unlimited',
     resultReleaseMode: 'instant',
@@ -71,7 +71,7 @@ export default function App() {
 
     // Check if test is open
     if (!institution.isTestOpen) {
-      alert('Pendaftaran berhasil! Namun sesi tes saat ini sedang ditutup oleh administrator.');
+      alert('Pendaftaran berhasil! Namun sesi Unlock Your Potential saat ini sedang ditutup oleh administrator.');
       setView('landing');
       return;
     }
@@ -102,7 +102,7 @@ export default function App() {
       setView('result');
     } else {
       if (!institution.isTestOpen) {
-        alert('Sesi tes saat ini sedang ditutup atau dibatasi oleh administrator.');
+        alert('Sesi Unlock Your Potential saat ini sedang ditutup atau dibatasi oleh administrator.');
         setView('landing');
         return;
       }

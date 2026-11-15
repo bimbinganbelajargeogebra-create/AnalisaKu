@@ -23,10 +23,10 @@ import { evaluateSubmission } from '../utils/diagnosticEvaluator';
 export type FirebaseSyncStatus = 'connecting' | 'live' | 'cache' | 'error';
 
 const DEFAULT_SETTINGS: InstitutionSettings = {
-  institutionName: 'Lembaga Asesmen & Diagnostik Potensi Siswa',
+  institutionName: 'Lembaga Pemetaan Unlock Your Potential',
   address: 'Jl. Pendidikan Karakter No. 108, Kompleks Akademik',
   phone: '(021) 7890-1234 / 0812-9876-5432',
-  email: 'info@asesmendiagnostik.sch.id',
+  email: 'info@unlockyourpotential.sch.id',
   isTestOpen: true,
   testScheduleMode: 'unlimited',
   resultReleaseMode: 'instant',

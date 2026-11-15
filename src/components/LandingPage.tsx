@@ -56,7 +56,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         'Bahasa soal disesuaikan ramah anak & mudah dipahami murid SD',
         'Dilengkapi diagram figural visual (menghitung kubus 3D & bentuk ruang)',
         'Membantu orang tua & guru memahami gaya belajar (visual, auditori, kinestetik)',
-        'Laporan hasil 2 halaman yang ringkas, jelas, dan mudah dipahami orang tua',
+        'Unlock Your Potential Report 2 halaman yang ringkas, jelas, dan mudah dipahami orang tua',
       ],
       sampleQuestions: 'Hitung jumlah kubus pada tumpukan, analogi gambar benda sehari-hari, dan pola angka sederhana.',
       reportFormat: 'Laporan 2 Halaman (Fokus: IQ, Kecerdasan Dominan, Gaya Belajar Sensori & Saran Guru/Ortu)',
@@ -85,7 +85,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       accentBg: 'bg-indigo-50/70 border-indigo-200',
       icon: GraduationCap,
       features: [
-        'Instrumen diagnostik terpadu 120 butir soal penalaran dan inventori psikometrik',
+        'Instrumen Unlock Your Potential terpadu 120 butir soal penalaran dan inventori psikometrik',
         'Analisis 4 lobus otak lengkap (Frontal, Parietal, Occipital, Temporal)',
         'Estimasi Potensi Daya Saing (PDS) untuk seleksi perguruan tinggi negeri / swasta',
         'Laporan lengkap 3 halaman memuat 3 klaster prioritas program studi kuliah',
@@ -111,8 +111,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       a: 'Tes terdiri dari 5 sesi terstruktur dengan total waktu sekitar 65 hingga 75 menit. Masing-masing sesi memiliki pengatur waktu otomatis dan siswa dapat melihat jumlah sisa soal yang belum dikerjakan secara transparan.',
     },
     {
-      q: 'Kapan dan bagaimana siswa menerima hasil asesmen?',
-      a: 'Hasil evaluasi langsung dianalisis oleh algoritma diagnostik terstandar. Siswa maupun pengelola dapat melihat hasil secara instan berupa grafik radar kecerdasan majemuk dan mengunduh berkas laporan resmi PDF berformat rapi.',
+      q: 'Kapan dan bagaimana siswa menerima Unlock Your Potential Report?',
+      a: 'Hasil evaluasi langsung dianalisis oleh algoritma psikometrik terstandar. Siswa maupun pengelola dapat melihat Unlock Your Potential Report secara instan berupa grafik radar kecerdasan majemuk dan mengunduh berkas PDF resmi berformat rapi.',
     },
     {
       q: 'Apakah tes ini bisa dibuka di HP, tablet, laptop, dan komputer PC?',
@@ -146,12 +146,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
               {/* Main Headline */}
               <h1 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight sm:leading-tight">
-                Kenali Potensi Diri, Kecerdasan & Gaya Belajar Terbaikmu!
+                Unlock Your Potential: Kenali Bakat, Kecerdasan & Gaya Belajar Terbaikmu!
               </h1>
 
               {/* Subtitle */}
               <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto lg:mx-0">
-                Platform tes asesmen diagnostik terpadu yang ramah siswa, terstandar, dan akurat. Memetakan Intelegensia Umum (IQ), 8 Spektrum Kecerdasan Majemuk, Dominasi Belahan Otak, serta panduan arah studi yang tepat.
+                Platform pemetaan potensi diri Unlock Your Potential terpadu yang ramah siswa, terstandar, dan akurat. Memetakan Intelegensia Umum (IQ), 8 Spektrum Kecerdasan Majemuk, Dominasi Belahan Otak, serta panduan arah studi yang tepat.
               </p>
 
               {/* Feature Highlights Pills */}
@@ -170,7 +170,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               {!institution.isTestOpen && (
                 <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs sm:text-sm font-medium flex items-center gap-2 justify-center lg:justify-start">
                   <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Sesi tes saat ini sedang ditutup atau dibatasi oleh administrator lembaga.</span>
+                  <span>Sesi pemetaan Unlock Your Potential saat ini sedang ditutup atau dibatasi oleh administrator lembaga.</span>
                 </div>
               )}
 
@@ -182,14 +182,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       onClick={onStartTest}
                       className="px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-sm sm:text-base rounded-2xl shadow-lg shadow-indigo-200 transition-all transform hover:-translate-y-0.5 flex items-center gap-2 cursor-pointer active:scale-95"
                     >
-                      <span>Lanjutkan / Mulai Tes Sekarang</span>
+                      <span>Lanjutkan / Mulai Sesi Sekarang</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                     <button
                       onClick={onCheckResult}
                       className="px-6 py-3.5 bg-white hover:bg-slate-50 active:bg-slate-100 border border-slate-300 text-slate-700 font-bold text-sm sm:text-base rounded-2xl transition cursor-pointer shadow-2xs"
                     >
-                      Lihat Hasil Evaluasi
+                      Lihat Report Saya
                     </button>
                   </>
                 ) : (
@@ -198,14 +198,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       onClick={onStartRegistration}
                       className="px-7 py-3.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-extrabold text-sm sm:text-base rounded-2xl shadow-lg shadow-indigo-200 transition-all transform hover:-translate-y-0.5 flex items-center gap-2.5 cursor-pointer active:scale-95"
                     >
-                      <span>Mulai Pendaftaran & Tes</span>
+                      <span>Daftar & Mulai Unlock Your Potential</span>
                       <ArrowRight className="w-5 h-5" />
                     </button>
                     <button
                       onClick={onCheckResult}
                       className="px-6 py-3.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold text-sm sm:text-base rounded-2xl transition shadow-xs cursor-pointer"
                     >
-                      Cek & Unduh Laporan PDF
+                      Cek & Unduh Report PDF
                     </button>
                   </>
                 )}
@@ -223,7 +223,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
                 <div>
                   <p className="text-xl sm:text-2xl font-black text-slate-900">2 - 3 Hal</p>
-                  <p className="text-xs text-slate-500 font-semibold">Laporan PDF Terstandar</p>
+                  <p className="text-xs text-slate-500 font-semibold">Unlock Your Potential Report PDF</p>
                 </div>
               </div>
             </div>
@@ -237,7 +237,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       <Brain className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="text-xs sm:text-sm font-extrabold text-slate-900">Pratinjau Hasil Diagnostik</p>
+                      <p className="text-xs sm:text-sm font-extrabold text-slate-900">Pratinjau Unlock Your Potential Report</p>
                       <p className="text-[11px] text-slate-500">Otomatisasi Akurat & Terpercaya</p>
                     </div>
                   </div>
@@ -334,7 +334,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               Instrumen Khusus Sesuai Tingkat Usia & Kelas
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              Pilihan Asesmen Diagnostik untuk SD, SMP, dan SMA
+              Pilihan Program Unlock Your Potential untuk SD, SMP, dan SMA
             </h2>
             <p className="text-sm sm:text-base text-slate-600">
               Setiap jenjang pendidikan memiliki karakter dan kebutuhan evaluasi yang berbeda. Pilih tab jenjang di bawah ini untuk melihat fitur yang disesuaikan:
@@ -498,7 +498,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="bg-slate-900 rounded-3xl text-white p-6 sm:p-10 space-y-6">
           <div className="max-w-3xl space-y-2">
             <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
-              Struktur Asesmen 5 Sesi
+              Struktur Sesi Unlock Your Potential (5 Sesi)
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
               Pengerjaan Bertahap yang Terstruktur & Nyaman
@@ -638,7 +638,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               Pertanyaan yang Sering Diajukan (FAQ)
             </h2>
             <p className="text-xs sm:text-sm text-slate-500">
-              Informasi praktis seputar pengerjaan asesmen diagnostik bagi siswa dan orang tua.
+              Informasi praktis seputar pengerjaan program Unlock Your Potential bagi siswa dan orang tua.
             </p>
           </div>
 

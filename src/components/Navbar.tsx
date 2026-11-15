@@ -41,10 +41,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
             <div>
               <span className="text-base sm:text-lg font-bold text-slate-900 tracking-tight block group-hover:text-indigo-600 transition-colors">
-                {institution.institutionName || 'Asesmen Diagnostik Siswa'}
+                {institution.institutionName || 'Unlock Your Potential'}
               </span>
               <span className="text-xs text-slate-500 hidden sm:block">
-                Evaluasi Potensi Akademik, Kecerdasan & Gaya Belajar
+                Pemetaan Potensi Akademik, Kecerdasan & Gaya Belajar Siswa
               </span>
             </div>
           </button>
@@ -71,7 +71,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-2 rounded-lg transition cursor-pointer"
                   >
                     <FileText className="w-4 h-4" />
-                    <span className="hidden sm:inline">Hasil Tes Saya</span>
+                    <span className="hidden sm:inline">Report Saya</span>
                   </button>
                 )}
                 <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg">
@@ -100,7 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onClick={onOpenRegister}
                   className="px-3.5 py-2 text-xs sm:text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm shadow-indigo-200 transition cursor-pointer"
                 >
-                  Daftar Tes
+                  Daftar &amp; Mulai
                 </button>
                 <button
                   onClick={onOpenAdminLogin}

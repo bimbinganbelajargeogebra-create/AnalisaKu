@@ -100,7 +100,7 @@ export const StudentRegisterModal: React.FC<StudentRegisterModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-linear-to-r from-indigo-50/50 to-white">
           <div>
-            <h3 className="text-lg font-bold text-slate-900">Formulir Identitas Peserta Tes</h3>
+            <h3 className="text-lg font-bold text-slate-900">Formulir Peserta Unlock Your Potential</h3>
             <p className="text-xs text-slate-500">Pilih jenjang pendidikan dan lengkapi data diri Anda</p>
           </div>
           <button
@@ -126,7 +126,7 @@ export const StudentRegisterModal: React.FC<StudentRegisterModalProps> = ({
               Jenjang Pendidikan Peserta <span className="text-rose-500">*</span>
             </label>
             <p className="text-[11px] text-slate-500">
-              Pilihan jenjang ini akan secara otomatis menyesuaikan paket soal (SD, SMP, atau SMA) yang tampil saat tes.
+              Pilihan jenjang ini akan secara otomatis menyesuaikan paket soal Unlock Your Potential (SD, SMP, atau SMA) yang tampil saat sesi berlangsung.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
               <button
@@ -351,7 +351,7 @@ export const StudentRegisterModal: React.FC<StudentRegisterModalProps> = ({
             {/* Akun Kredensial */}
             <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
               <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                Akun Kredensial Akses Hasil & Tes
+                Akun Kredensial Akses Tes &amp; Report
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -404,7 +404,7 @@ export const StudentRegisterModal: React.FC<StudentRegisterModalProps> = ({
               disabled={loading}
               className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-md shadow-indigo-200 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
             >
-              <span>{loading ? 'Menyimpan...' : 'Simpan & Lanjut ke Tes'}</span>
+              <span>{loading ? 'Menyimpan...' : 'Simpan & Mulai Tes'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

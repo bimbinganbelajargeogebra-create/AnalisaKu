@@ -60,7 +60,7 @@ export const StudentLoginModal: React.FC<StudentLoginModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Masuk Akun Siswa</h3>
-              <p className="text-xs text-slate-500">Akses pengerjaan tes dan unduh hasil PDF</p>
+              <p className="text-xs text-slate-500">Akses sesi Unlock Your Potential dan unduh Report PDF</p>
             </div>
           </div>
           <button

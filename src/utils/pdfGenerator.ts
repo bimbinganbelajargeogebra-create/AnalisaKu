@@ -521,7 +521,7 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
     doc.setFontSize(6);
     doc.setTextColor(146, 64, 14);
     doc.text(
-      'Hasil tes diagnostik bisa berubah tergantung kemampuan testee belajar dan berinteraksi dengan lingkungannya.',
+      'Hasil pemetaan Unlock Your Potential bisa berubah tergantung kemampuan peserta belajar dan berinteraksi dengan lingkungannya.',
       margin + 4,
       y + 8
     );
@@ -611,7 +611,7 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
   doc.setFontSize(6.5);
   doc.setTextColor(146, 64, 14);
   doc.text(
-    'Hasil tes diagnostik ini bersifat dinamis dan dapat berkembang sesuai motivasi belajar, pelatihan terbimbing, serta interaksi lingkungan siswa.',
+    'Hasil laporan Unlock Your Potential ini bersifat dinamis dan dapat berkembang sesuai motivasi belajar, pelatihan terbimbing, serta interaksi lingkungan siswa.',
     margin + 4,
     y + 9.5
   );
@@ -626,7 +626,7 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
   doc.setFont('helvetica', 'bold');
   doc.text(institution.institutionName, sigX, y + 4.5);
   doc.setFont('helvetica', 'normal');
-  doc.text('Tim Ahli Asesmen & Diagnostik', sigX, y + 9);
+  doc.text('Tim Ahli Unlock Your Potential', sigX, y + 9);
 
   doc.setDrawColor(37, 99, 235);
   doc.setLineWidth(0.6);
@@ -654,7 +654,7 @@ function drawHeader(doc: jsPDF, pageNum: number, institution: InstitutionSetting
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(255, 255, 255);
-  doc.text(`LAPORAN HASIL TES DIAGNOSTIK (${levelLabel})`, margin + 6, 17);
+  doc.text(`Unlock Your Potential Report (${levelLabel})`, margin + 6, 17);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
@@ -673,7 +673,7 @@ function drawFooter(doc: jsPDF, pageNum: number, totalPages: number) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.8);
   doc.setTextColor(100, 116, 139);
-  doc.text(`${pageNum} | Hasil Tes Diagnostik Siswa`, margin, pageHeight - 7.5);
+  doc.text(`${pageNum} | Unlock Your Potential Report`, margin, pageHeight - 7.5);
   doc.setFont('helvetica', 'bold');
   doc.text(`@copyright Pak GuruAI`, pageWidth / 2, pageHeight - 7.5, { align: 'center' });
   doc.setFont('helvetica', 'normal');

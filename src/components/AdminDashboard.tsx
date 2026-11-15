@@ -267,7 +267,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleDownloadPdf = (res: TestResult) => {
     const doc = generateDiagnosticPdf(res, institution);
     const safeName = (res.fullName || 'Siswa').replace(/\s+/g, '_');
-    doc.save(`Laporan_Diagnostik_${res.educationLevel}_${safeName}_${res.regNumber}.pdf`);
+    doc.save(`Unlock_Your_Potential_Report_${res.educationLevel}_${safeName}_${res.regNumber}.pdf`);
   };
 
   const handleUnlockSession = async (studentId: string, studentName: string) => {
@@ -327,7 +327,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
             <h1 className="text-xl sm:text-2xl font-bold">{institution.institutionName}</h1>
             <p className="text-xs sm:text-sm text-slate-300">
-              Kelola Pengaturan Lembaga, Batas Waktu Tes, Siswa (SD, SMP & SMA), dan Analisis Hasil
+              Kelola Pengaturan Lembaga, Jadwal Sesi, Siswa (SD, SMP &amp; SMA), dan Unlock Your Potential Report
             </p>
           </div>
         </div>
@@ -479,7 +479,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }`}
         >
           <FileText className="w-4 h-4" />
-          <span>Analisis & Hasil Siswa ({results.length})</span>
+          <span>Unlock Your Potential Report ({results.length})</span>
         </button>
 
         <button
@@ -739,7 +739,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <Activity className="w-12 h-12 text-slate-300 mx-auto" />
               <h3 className="text-base font-bold text-slate-700">Belum Ada Aktivitas Sesi Tes</h3>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Progres jawaban, peringatan keluar halaman (maks. 3x), dan status kunci siswa akan tampil secara real-time di sini saat siswa mengerjakan asesmen.
+                Progres jawaban, peringatan keluar halaman (maks. 3x), dan status kunci siswa akan tampil secara real-time di sini saat siswa mengerjakan program Unlock Your Potential.
               </p>
             </div>
           ) : (
@@ -1378,7 +1378,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {/* Section 3: Pengaturan Rilis Hasil */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
             <div className="border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">Pengaturan Rilis Hasil Diagnostik Siswa</h3>
+              <h3 className="text-base font-bold text-slate-900">Pengaturan Rilis Unlock Your Potential Report Siswa</h3>
               <p className="text-xs text-slate-500">
                 Atur apakah hasil tes siswa langsung keluar seketika atau ditahan hingga berbatas waktu tertentu
               </p>

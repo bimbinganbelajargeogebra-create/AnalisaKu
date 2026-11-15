@@ -81,7 +81,7 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
         </div>
         <h3 className="text-xl font-bold text-slate-900">Hasil Tes Sedang Dalam Proses Verifikasi</h3>
         <p className="text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
-          Terima kasih telah menyelesaikan seluruh rangkaian asesmen diagnostik ({result.educationLevel || 'SMA'}). Hasil evaluasi Anda telah masuk ke sistem dan saat ini sedang menunggu validasi / rilis resmi dari tim pengelola lembaga.
+          Terima kasih telah menyelesaikan seluruh rangkaian program Unlock Your Potential ({result.educationLevel || 'SMA'}). Hasil evaluasi Anda telah masuk ke sistem dan saat ini sedang menunggu validasi / rilis resmi dari tim pengelola lembaga.
         </p>
         {institution.resultReleaseDate && (
           <div className="inline-flex items-center gap-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-900 text-xs font-semibold">
@@ -106,7 +106,7 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
     try {
       const doc = generateDiagnosticPdf(result, institution);
       const safeName = (result.fullName || 'Siswa').replace(/\s+/g, '_');
-      doc.save(`Laporan_Hasil_Diagnostik_${result.educationLevel}_${safeName}_${result.regNumber}.pdf`);
+      doc.save(`Unlock_Your_Potential_Report_${result.educationLevel}_${safeName}_${result.regNumber}.pdf`);
     } catch (err) {
       alert('Gagal membuat berkas PDF: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
@@ -180,7 +180,7 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-                Hasil Tes Diagnostik Siswa
+                Unlock Your Potential Report
               </h1>
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
                 Jenjang {result.educationLevel || 'SMA'}
@@ -219,7 +219,7 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
           <div className="border-b-2 border-blue-900 pb-3 flex justify-between items-end">
             <div>
               <span className="text-[11px] font-bold tracking-widest text-blue-900 uppercase">
-                1 | HASIL TES DIAGNOSTIK
+                1 | UNLOCK YOUR POTENTIAL REPORT
               </span>
               <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 mt-0.5">
                 {institution.institutionName}
@@ -617,7 +617,7 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
 
             {/* Halaman 1 Footer */}
             <div className="border-t border-slate-200 pt-3 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 font-medium gap-2">
-              <span>1 | Hasil Tes Diagnostik Siswa</span>
+              <span>1 | Unlock Your Potential Report</span>
               <span className="font-bold text-slate-700">@copyright Pak GuruAI</span>
               <span>Halaman 1 dari {is2Pages ? 2 : 3}</span>
             </div>
@@ -630,7 +630,7 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
         <div className="p-6 sm:p-10 space-y-8 bg-slate-50/30">
           <div className="border-b-2 border-blue-900 pb-2">
             <span className="text-[11px] font-bold tracking-widest text-blue-900 uppercase">
-              2 | HASIL TES DIAGNOSTIK - KECENDERUNGAN PSIKOLOGIS & POTENSI
+              2 | UNLOCK YOUR POTENTIAL REPORT - KECENDERUNGAN PSIKOLOGIS & POTENSI
             </span>
           </div>
 
@@ -744,14 +744,14 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
               <p className="font-bold">Catatan :</p>
               <p>
-                Hasil tes diagnostik bisa berubah tergantung kemampuan testee belajar dan berinteraksi dengan lingkungannya.
+                Hasil laporan Unlock Your Potential bisa berubah tergantung kemampuan peserta belajar dan berinteraksi dengan lingkungannya.
               </p>
             </div>
           )}
 
           {/* Halaman 2 Footer */}
           <div className="border-t border-slate-200 pt-3 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 font-medium gap-2">
-            <span>2 | Hasil Tes Diagnostik Siswa</span>
+            <span>2 | Unlock Your Potential Report</span>
             <span className="font-bold text-slate-700">@copyright Pak GuruAI</span>
             <span>Halaman 2 dari {is2Pages ? 2 : 3}</span>
           </div>
@@ -764,7 +764,7 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
           <div className="p-6 sm:p-10 space-y-8">
             <div className="border-b-2 border-blue-900 pb-2">
               <span className="text-[11px] font-bold tracking-widest text-blue-900 uppercase">
-                3 | HASIL TES DIAGNOSTIK - REKOMENDASI PROGRAM STUDI PTN / PTS
+                3 | UNLOCK YOUR POTENTIAL REPORT - REKOMENDASI PROGRAM STUDI PTN / PTS
               </span>
             </div>
 
@@ -806,13 +806,13 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
               <p className="font-bold">Catatan :</p>
               <p>
-                Hasil tes diagnostik bisa berubah tergantung kemampuan testee belajar dan berinteraksi dengan lingkungannya.
+                Hasil laporan Unlock Your Potential bisa berubah tergantung kemampuan peserta belajar dan berinteraksi dengan lingkungannya.
               </p>
             </div>
 
             {/* Halaman 3 Footer */}
             <div className="border-t border-slate-200 pt-3 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 font-medium gap-2">
-              <span>3 | Hasil Tes Diagnostik Siswa</span>
+              <span>3 | Unlock Your Potential Report</span>
               <span className="font-bold text-slate-700">@copyright Pak GuruAI</span>
               <span>Halaman 3 dari 3</span>
             </div>

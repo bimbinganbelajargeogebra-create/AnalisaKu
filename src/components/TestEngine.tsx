@@ -186,7 +186,7 @@ export const TestEngine: React.FC<TestEngineProps> = ({
       if (isSubmittingRef.current) return;
       e.preventDefault();
       e.returnValue =
-        'Anda sedang mengerjakan asesmen. Meninggalkan halaman ini dapat mengunci tes Anda!';
+        'Anda sedang mengerjakan program Unlock Your Potential. Meninggalkan halaman ini dapat mengunci akses Anda!';
       return e.returnValue;
     };
 
@@ -393,7 +393,7 @@ export const TestEngine: React.FC<TestEngineProps> = ({
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        triggerViolation('Membuka tab lain atau meminimalkan halaman asesmen');
+        triggerViolation('Membuka tab lain atau meminimalkan halaman Unlock Your Potential');
       }
     };
 
@@ -784,7 +784,7 @@ export const TestEngine: React.FC<TestEngineProps> = ({
                 <span>Anda telah keluar dari halaman tes lebih dari 3 kali ({violationCount} pelanggaran).</span>
               </p>
               <p>
-                Sesuai aturan asesmen, sistem otomatis mengunci tes dan{' '}
+                Sesuai aturan program Unlock Your Potential, sistem otomatis mengunci akses dan{' '}
                 <strong>seluruh {answeredCount} jawaban Anda telah tersimpan secara real-time di database Firebase</strong>.
               </p>
             </div>
@@ -901,7 +901,7 @@ export const TestEngine: React.FC<TestEngineProps> = ({
                 </p>
               ) : (
                 <p>
-                  Harap tetap berada di halaman asesmen hingga selesai. Sisa batas toleransi:{' '}
+                  Harap tetap berada di halaman Unlock Your Potential hingga selesai. Sisa batas toleransi:{' '}
                   <strong>{3 - activeWarningCount} kali peringatan lagi</strong> sebelum tes terkunci otomatis.
                 </p>
               )}
@@ -1083,7 +1083,7 @@ export const TestEngine: React.FC<TestEngineProps> = ({
           <div className="py-2 border-t border-slate-100 space-y-1.5">
             <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] sm:text-xs">
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                <span className="font-semibold text-slate-700 hidden xs:inline">Progres Asesmen:</span>
+                <span className="font-semibold text-slate-700 hidden xs:inline">Progres Unlock Your Potential:</span>
                 <span className="font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3 text-indigo-600" />
                   <span>
@@ -1164,7 +1164,7 @@ export const TestEngine: React.FC<TestEngineProps> = ({
               </div>
 
               <span className="text-[10px] text-slate-400 hidden lg:inline pl-3">
-                Aturan Tes: Dilarang membuka tab/halaman lain. Batas toleransi keluar halaman maksimal 3 kali.
+                Aturan Sesi: Dilarang membuka tab/halaman lain selama Unlock Your Potential. Batas toleransi keluar halaman maksimal 3 kali.
               </span>
             </div>
           </div>
@@ -1187,10 +1187,10 @@ export const TestEngine: React.FC<TestEngineProps> = ({
             <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
             <span className="font-semibold">
               {level === 'SD'
-                ? 'Semangat, Sobat Cilik! Baca soal dengan tenang & tetap di halaman ini sampai selesai.'
+                ? 'Semangat, Sobat Cilik! Temukan potensi terbaikmu dengan tenang & tetap di halaman ini sampai selesai.'
                 : level === 'SMP'
-                ? 'Asesmen Diagnostik SMP/MTs: Teliti setiap soal dan tetap fokus pada halaman asesmen.'
-                : 'Asesmen Diagnostik SMA/MA/SMK: Kerjakan dengan konsentrasi penuh tanpa berpindah tab/aplikasi.'}
+                ? 'Unlock Your Potential SMP/MTs: Teliti setiap soal dan tetap fokus pada halaman tes.'
+                : 'Unlock Your Potential SMA/MA/SMK: Kerjakan dengan konsentrasi penuh tanpa berpindah tab/aplikasi.'}
             </span>
           </div>
 
@@ -1354,7 +1354,7 @@ export const TestEngine: React.FC<TestEngineProps> = ({
 
         <div className="text-center text-[11px] text-slate-400 py-2">
           <span>
-            Semua jawaban tersimpan otomatis di perangkat dan tersinkronisasi real-time ke database. Jangan keluar halaman selama asesmen berlangsung.
+            Semua jawaban tersimpan otomatis di perangkat dan tersinkronisasi real-time ke database. Jangan keluar halaman selama sesi Unlock Your Potential berlangsung.
           </span>
           <p className="font-semibold text-slate-600 pt-1">@copyright Pak GuruAI</p>
         </div>
@@ -1517,7 +1517,7 @@ export const TestEngine: React.FC<TestEngineProps> = ({
                 <span className="font-bold text-slate-900 truncate max-w-[200px]">{student.fullName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Jenjang Asesmen :</span>
+                <span className="text-slate-600">Jenjang Program :</span>
                 <span className="font-bold text-indigo-700">
                   {level} ({student.grade})
                 </span>
