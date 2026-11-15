@@ -41,6 +41,14 @@ export const SESSIONS_INFO_SMA: SessionInfo[] = [
     startQuestion: 41,
     endQuestion: 120,
   },
+  {
+    session: 6,
+    name: 'Sesi 6: Analisa Klaster Program Studi & Rekomendasi PTN (SMA/SMK)',
+    timeLimitMinutes: 10,
+    description: 'Kerjakan dalam 10 menit. Pilih jawaban yang paling mencerminkan minat studi, orientasi karier, dan preferensi Perguruan Tinggi Negeri kalian!',
+    startQuestion: 121,
+    endQuestion: 130,
+  },
 ];
 
 export const SESSIONS_INFO_SMP: SessionInfo[] = [
@@ -83,6 +91,14 @@ export const SESSIONS_INFO_SMP: SessionInfo[] = [
     description: 'Kerjakan dalam 20 menit. Pilih jawaban yang paling sesuai dengan kondisi adik-adik!',
     startQuestion: 41,
     endQuestion: 120,
+  },
+  {
+    session: 6,
+    name: 'Sesi 6: Analisa Peminatan & Rekomendasi Sekolah Lanjutan SMA/SMK (SMP)',
+    timeLimitMinutes: 10,
+    description: 'Kerjakan dalam 10 menit. Pilih jawaban yang paling sesuai dengan minat dan rencana sekolah lanjutan SMA atau SMK beserta jurusannya!',
+    startQuestion: 121,
+    endQuestion: 130,
   },
 ];
 
@@ -764,6 +780,138 @@ export const DIAGNOSTIC_QUESTIONS_SMA: Question[] = [
   { id: 118, session: 5, category: 'naturalis', text: 'Dalam berargumentasi, saya cenderung membandingkan lawan saya dengan seseorang atau sesuatu yang pernah saya baca atau dengar lalu bereaksi.', options: LIKERT_OPTIONS, type: 'likert' },
   { id: 119, session: 5, category: 'naturalis', text: 'Jika sesuatu rusak dan tidak berfungsi, saya memperhatikan sekeliling saya untuk melihat apa yang bisa saya temukan untuk memperbaikinya.', options: LIKERT_OPTIONS, type: 'likert' },
   { id: 120, session: 5, category: 'naturalis', text: 'Dalam kerja kelompok, saya lebih memilih mengatur dan mengelompokkan informasi dalam kategori-kategori sehingga mudah dimengerti.', options: LIKERT_OPTIONS, type: 'likert' },
+
+  // --- SESI 6 (121 - 130) SMA/SMK: Analisa Klaster Program Studi & Rekomendasi PTN ---
+  {
+    id: 121,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Rumpun keilmuan perguruan tinggi mana yang paling memicu rasa ingin tahu dan semangat belajar jangka panjang Anda?',
+    options: [
+      { label: 'A', text: 'Saintek Rekayasa & Teknologi Digital (Informatika, AI, Teknik Elektro, Mesin, Sipil)' },
+      { label: 'B', text: 'Kedokteran, Farmasi, Kesehatan Masyarakat, Bioteknologi & Ilmu Hayati' },
+      { label: 'C', text: 'Ekonomi, Bisnis, Akuntansi, Manajemen, Ilmu Hukum & Kebijakan Publik' },
+      { label: 'D', text: 'Psikologi, Ilmu Komunikasi, Hubungan Internasional, Sastra, Arsitektur & Desain (DKV)' },
+    ],
+  },
+  {
+    id: 122,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Dalam menghadapi studi kasus kompleks di masyarakat, peran analitis mana yang paling ingin Anda jalankan sebagai profesional masa depan?',
+    options: [
+      { label: 'A', text: 'Merancang sistem algoritma, infrastruktur teknologi, atau otomasi industri berbasis data' },
+      { label: 'B', text: 'Meneliti solusi kesehatan klinis, formulasi obat, atau ketahanan pangan & lingkungan' },
+      { label: 'C', text: 'Menganalisis strategi keuangan, investasi, tata kelola perusahaan, atau regulasi hukum' },
+      { label: 'D', text: 'Menganalisis perilaku manusia, membangun kampanye komunikasi publik, atau merancang tata ruang/visual' },
+    ],
+  },
+  {
+    id: 123,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Karakteristik ekosistem kampus Perguruan Tinggi Negeri (PTN) seperti apa yang paling Anda impikan?',
+    options: [
+      { label: 'A', text: 'PTN Berbasis Riset Teknologi & Rekayasa Unggulan (seperti ITB, ITS, atau Fakultas Teknik/Fasilkom UI/UGM)' },
+      { label: 'B', text: 'PTN Unggulan Klaster Kedokteran, Kesehatan & Agrobiosains (seperti UI, UGM, UNAIR, UNPAD, IPB)' },
+      { label: 'C', text: 'PTN Komprehensif dengan Fakultas Ekonomi-Bisnis, Hukum & Sosial-Humaniora ternama (seperti UI, UGM, UNDIP, UB, UNPAD)' },
+      { label: 'D', text: 'PTN Seni/Desain Kreatif atau Politeknik Negeri & Sekolah Vokasi dengan porsi praktik industri dominan (seperti ISI, PENS, POLBAN, Vokasi UI/UGM)' },
+    ],
+  },
+  {
+    id: 124,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Jika harus memilih pendekatan perkuliahan selama 3–4 tahun ke depan, pola mana yang paling sesuai dengan ketahanan belajar Anda?',
+    options: [
+      { label: 'A', text: 'S1 Akademik dengan penekanan kuat pada kalkulus, pemodelan logika, dan eksperimen laboratorium' },
+      { label: 'B', text: 'S1 Akademik berjenjang profesi dengan praktikum anatomi, biokimia, dan pengabdian klinis/lapangan' },
+      { label: 'C', text: 'S1 Akademik berbasis studi kasus sosial-ekonomi, analisis regulasi, debat ilmiah, dan riset pasar' },
+      { label: 'D', text: 'D4/Sarjana Terapan atau S1 berbasis proyek studio, portofolio desain, dan magang industri intensif' },
+    ],
+  },
+  {
+    id: 125,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Kelompok mata pelajaran atau kompetensi sekolah mana yang konsisten memberikan kepuasan intelektual tertinggi bagi Anda?',
+    options: [
+      { label: 'A', text: 'Matematika Lanjut, Fisika, Algoritma & Pemrograman, atau Teknik Rekayasa' },
+      { label: 'B', text: 'Biologi, Kimia Organik, Kesehatan, atau Ilmu Kebumian & Lingkungan' },
+      { label: 'C', text: 'Ekonomi, Akuntansi, Sosiologi, Sejarah, atau Hukum/Tata Negara' },
+      { label: 'D', text: 'Bahasa Asing, Seni Rupa, Desain Grafis/Multimedia, atau Komunikasi Visual' },
+    ],
+  },
+  {
+    id: 126,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Ketika mengevaluasi peluang lolos seleksi masuk PTN (SNBP, SNBT, dan Seleksi Mandiri), strategi mana yang paling Anda utamakan?',
+    options: [
+      { label: 'A', text: 'Mengincar PTN klaster paling kompetitif nasional dengan fokus prodi Teknik/IT/Sains Data unggulan' },
+      { label: 'B', text: 'Menyeimbangkan pilihan utama PTN top nasional dengan prodi rumpun Kesehatan/Hayati di PTN strategis' },
+      { label: 'C', text: 'Memetakan daya tampung dan keketatan prodi Soshum/Bisnis/Hukum di PTN favorit lintas wilayah Jawa' },
+      { label: 'D', text: 'Memaksimalkan jalur portofolio prestasi/karya atau seleksi Vokasi Politeknik Negeri yang siap kerja' },
+    ],
+  },
+  {
+    id: 127,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Wilayah pusat pendidikan PTN mana yang paling menjadi prioritas pertimbangan studi lanjut Anda?',
+    options: [
+      { label: 'A', text: 'Kawasan Jawa Barat & Jabodetabek (UI Depok, ITB Bandung, IPB Bogor, UNPAD Jatinangor, POLBAN)' },
+      { label: 'B', text: 'Kawasan Yogyakarta & Jawa Tengah (UGM Yogyakarta, UNDIP Semarang, UNS Surakarta, ISI Yogyakarta)' },
+      { label: 'C', text: 'Kawasan Jawa Timur & Indonesia Timur (ITS Surabaya, UNAIR Surabaya, UB Malang, PENS, UNHAS)' },
+      { label: 'D', text: 'Fleksibel di seluruh PTN unggulan Indonesia selama program studinya paling relevan dengan minat karier' },
+    ],
+  },
+  {
+    id: 128,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Jika diminta memimpin proyek riset mahasiswa tingkat nasional (PKM/Kompetisi Inovasi), tema apa yang akan Anda usulkan?',
+    options: [
+      { label: 'A', text: 'Pengembangan aplikasi berbasis Artificial Intelligence, IoT, atau efisiensi energi terbarukan' },
+      { label: 'B', text: 'Inovasi suplemen herbal berbasis bioteknologi, alat diagnostik medis, atau konservasi ekosistem' },
+      { label: 'C', text: 'Model pemberdayaan UMKM digital, analisis kebijakan ekonomi hijau, atau advokasi hukum masyarakat' },
+      { label: 'D', text: 'Kampanye media interaktif kesehatan mental, desain arsitektur inklusif, atau animasi budaya lokal' },
+    ],
+  },
+  {
+    id: 129,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Bagaimana profil tantangan akademik yang paling siap Anda jalani di bangku kuliah PTN?',
+    options: [
+      { label: 'A', text: 'Menghadapi tugas pemrograman, kalkulus multi-variabel, mekanika teknik, dan perancangan sistem' },
+      { label: 'B', text: 'Menghafal sekaligus menganalisis mekanisme biologis/kimiawi serta jam praktikum laboratorium padat' },
+      { label: 'C', text: 'Membaca literatur regulasi/jurnal ekonomi tebal, menyusun argumen debat, dan mengolah data bisnis' },
+      { label: 'D', text: 'Begadang menyempurnakan karya studio desain, riset lapangan psikologi/sosial, atau produksi media' },
+    ],
+  },
+  {
+    id: 130,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Dari target pencapaian 5 tahun ke depan setelah masuk perguruan tinggi, gambaran mana yang paling mendekati visi Anda?',
+    options: [
+      { label: 'A', text: 'Bekerja sebagai Software/Data/Systems Engineer di perusahaan teknologi atau melanjutkan riset S2 teknik' },
+      { label: 'B', text: 'Menjadi Dokter, Apoteker, Ahli Gizi, atau Peneliti Sains Hayati yang berdampak langsung pada kesehatan publik' },
+      { label: 'C', text: 'Menjadi Akuntan Publik, Konsultan Bisnis, Analis Keuangan, atau Legal Counsel di korporasi/instansi' },
+      { label: 'D', text: 'Menjadi Psikolog/HR Specialist, Praktisi Komunikasi/Diplomasi, Arsitek, atau Creative Tech Director' },
+    ],
+  },
 ];
 
 // =========================================================================
@@ -1398,6 +1546,138 @@ export const DIAGNOSTIC_QUESTIONS_SMP: Question[] = [
   { id: 118, session: 5, category: 'naturalis', text: 'Jika saya harus bicara, saya senang membandingkan lawan bicara saya dengan seseorang atau sesuatu yang pernah saya baca atau dengar.', options: LIKERT_OPTIONS, type: 'likert' },
   { id: 119, session: 5, category: 'naturalis', text: 'Ketika mainan saya rusak, biasanya saya memperhatikan sekeliling saya untuk melihat apa yang bisa saya temukan untuk memperbaikinya.', options: LIKERT_OPTIONS, type: 'likert' },
   { id: 120, session: 5, category: 'naturalis', text: 'Dalam kerja kelompok, saya lebih memilih mengatur dan mengelompokkan informasi dalam kategori-kategori tertentu sehingga mudah dimengerti.', options: LIKERT_OPTIONS, type: 'likert' },
+
+  // --- SESI 6 (121 - 130) SMP: Analisa Peminatan & Rekomendasi Sekolah Lanjutan SMA/SMK ---
+  {
+    id: 121,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Setelah lulus SMP nanti, pola belajar di sekolah lanjutan seperti apa yang terasa paling pas dengan dirimu?',
+    options: [
+      { label: 'A', text: 'SMA (Peminatan MIPA/Saintek): mendalami matematika, fisika, dan teknologi sebagai bekal kuliah teknik/sains' },
+      { label: 'B', text: 'SMA MIPA Biologi/Kimia atau SMK Kesehatan: fokus ilmu alam, laboratorium kesehatan, dan farmasi' },
+      { label: 'C', text: 'SMA IPS/Soshum atau SMK Bisnis & Manajemen: fokus ekonomi, akuntansi, hukum, dan tata kelola usaha' },
+      { label: 'D', text: 'SMK Kejuruan Teknologi/Kreatif (RPL/TJKT/DKV/Teknik): porsi praktik keahlian tinggi agar punya portofolio siap kerja & kuliah terapan' },
+    ],
+  },
+  {
+    id: 122,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Di antara kelompok mata pelajaran SMP berikut, mana yang paling mudah kamu pahami sekaligus paling kamu nikmati?',
+    options: [
+      { label: 'A', text: 'Matematika, IPA Fisika, dan Informatika / TIK' },
+      { label: 'B', text: 'IPA Biologi, Kimia dasar, dan kesehatan lingkungan' },
+      { label: 'C', text: 'IPS (Ekonomi, Geografi, Sejarah), PPKn, dan Bahasa Indonesia/Inggris' },
+      { label: 'D', text: 'Seni Budaya, Prakarya Rekayasa, dan desain media digital' },
+    ],
+  },
+  {
+    id: 123,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Jika sekolah mengadakan lomba inovasi antar-SMP, peran teknis apa yang paling ingin kamu pegang di tim?',
+    options: [
+      { label: 'A', text: 'Membuat program aplikasi, perakitan rangkaian elektronik, atau perhitungan model fisika' },
+      { label: 'B', text: 'Melakukan uji laboratorium bahan alam, bioteknologi sederhana, atau edukasi medis/gizi' },
+      { label: 'C', text: 'Menyusun rencana bisnis, analisis anggaran biaya, presentasi, dan strategi pemasaran' },
+      { label: 'D', text: 'Mendesain visual produk, mengedit video profil, atau membuat prototipe grafis 3D' },
+    ],
+  },
+  {
+    id: 124,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Saat melihat suatu alat atau sistem tidak bekerja dengan baik, apa kecenderungan reaksimu?',
+    options: [
+      { label: 'A', text: 'Menganalisis alur logika/komponennya dan membongkar pasang untuk memperbaiki cara kerjanya' },
+      { label: 'B', text: 'Mengecek kondisi lingkungan atau faktor bahan penyusunnya secara teliti langkah demi langkah' },
+      { label: 'C', text: 'Berkoordinasi dengan orang yang paham dan mengatur pembagian langkah penyelesaiannya' },
+      { label: 'D', text: 'Mencari ide modifikasi baru agar tampilannya lebih menarik dan fungsional dipakai' },
+    ],
+  },
+  {
+    id: 125,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Jurusan spesifik di jenjang SMA/SMK mana yang paling menarik perhatianmu saat membayangkan kelas 10 nanti?',
+    options: [
+      { label: 'A', text: 'SMA Peminatan MIPA Lanjut atau SMK Rekayasa Perangkat Lunak (RPL) / Teknik Jaringan Komputer (TJKT)' },
+      { label: 'B', text: 'SMA Peminatan Biologi-Kimia atau SMK Farmasi Klinis / Keperawatan / Agroteknologi' },
+      { label: 'C', text: 'SMA Peminatan IPS-Ekonomi-Bahasa atau SMK Akuntansi & Keuangan Lembaga (AKL) / Bisnis Digital' },
+      { label: 'D', text: 'SMK Desain Komunikasi Visual (DKV) / Animasi / Teknik Mesin & Otomotif' },
+    ],
+  },
+  {
+    id: 126,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Bagaimana keseimbangan antara pelajaran teori di kelas dan praktik laboratorium/bengkel yang paling membuatmu berkembang?',
+    options: [
+      { label: 'A', text: 'Lebih banyak teori konseptual & pendalaman soal HOTS (sekitar 75% teori akademik, 25% praktik lab)' },
+      { label: 'B', text: 'Seimbang antara konsep ilmiah biologi-kimia dan observasi praktikum terapan (60% teori, 40% praktik)' },
+      { label: 'C', text: 'Diskusi isu sosial-ekonomi, presentasi, simulasi bisnis, dan praktik administrasi terstruktur' },
+      { label: 'D', text: 'Dominan praktik langsung menghasilkan proyek nyata/produk kejuruan (30% teori, 70% praktik bengkel/studio)' },
+    ],
+  },
+  {
+    id: 127,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Target utama apa yang ingin kamu capai selama 3 tahun menempuh pendidikan di SMA atau SMK?',
+    options: [
+      { label: 'A', text: 'Menguasai dasar sains/matematika kuat untuk menembus jurusan Teknik/IT/Sains di PTN favorit' },
+      { label: 'B', text: 'Memiliki pemahaman kuat di bidang sains hayati/kesehatan untuk masuk Fakultas Kedokteran, Farmasi, atau vokasi kesehatan' },
+      { label: 'C', text: 'Mengasah kemampuan komunikasi, kepemimpinan, ekonomi & hukum untuk studi bisnis atau siap mengelola usaha' },
+      { label: 'D', text: 'Menguasai satu keahlian teknis tersertifikasi (IT, Desain DKV, Otomotif, atau Akuntansi) sehingga siap kerja maupun kuliah terapan' },
+    ],
+  },
+  {
+    id: 128,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Lingkungan kerja atau ruang praktik seperti apa yang paling membuatmu betah beraktivitas berjam-jam?',
+    options: [
+      { label: 'A', text: 'Laboratorium komputer, ruang server jaringan, atau meja kerja perakitan elektronika/robotik' },
+      { label: 'B', text: 'Laboratorium IPA/biologi, ruang praktik farmasi/kesehatan, atau area riset lingkungan alam' },
+      { label: 'C', text: 'Ruang rapat diskusi, kantor administrasi keuangan modern, atau panggung presentasi publik' },
+      { label: 'D', text: 'Studio desain grafis, ruang produksi multimedia/kamera, atau bengkel karya teknik kreatif' },
+    ],
+  },
+  {
+    id: 129,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Jika diberi tugas akhir proyek sekolah SMP, topik analisis mana yang akan kamu pilih?',
+    options: [
+      { label: 'A', text: 'Membuat aplikasi kalkulator cerdas, simulasi jaringan, atau alat sensor otomatis' },
+      { label: 'B', text: 'Menganalisis kualitas air bersih, kandungan gizi makanan sehat, atau manfaat tanaman herbal' },
+      { label: 'C', text: 'Menganalisis tren belanja pelajar, pembukuan keuangan kantin, atau survei opini siswa' },
+      { label: 'D', text: 'Merancang majalah digital sekolah, video dokumenter, atau desain kemasan produk ramah lingkungan' },
+    ],
+  },
+  {
+    id: 130,
+    session: 6,
+    category: 'analisa_lanjutan',
+    type: 'text',
+    text: 'Secara keseluruhan, bidang profesi jangka panjang mana yang paling terasa sejalan dengan jati dirimu?',
+    options: [
+      { label: 'A', text: 'Programmer, Network Engineer, Data Analyst, Arsitek Sistem, atau Insinyur Teknik' },
+      { label: 'B', text: 'Dokter, Apoteker, Tenaga Kesehatan, Peneliti Bioteknologi, atau Ahli Lingkungan' },
+      { label: 'C', text: 'Akuntan, Pengusaha, Manajer Bisnis, Konsultan Hukum, atau Diplomat/Komunikator' },
+      { label: 'D', text: 'Desainer Komunikasi Visual (DKV), Animator, Produser Multimedia, atau Teknisi Ahli Terapan' },
+    ],
+  },
 ];
 
 import { DIAGNOSTIC_QUESTIONS_SD, SESSIONS_INFO_SD } from './diagnosticQuestionsSd';

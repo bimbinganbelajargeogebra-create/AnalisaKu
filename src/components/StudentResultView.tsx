@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { InstitutionSettings, TestResult } from '../types';
 import { generateDiagnosticPdf } from '../utils/pdfGenerator';
+import { resolveRecommendationsWithFallback } from '../utils/diagnosticEvaluator';
 import { BrainLobeDiagram, HemispheresDiagram } from './BrainLobeDiagram';
 import {
   Download,
@@ -21,6 +22,8 @@ import {
   ShieldCheck,
   AlertTriangle,
   Lock,
+  Building2,
+  MapPin,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -70,8 +73,9 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
 
   const isSd = result.educationLevel === 'SD';
   const isSmp = result.educationLevel === 'SMP';
-  const is2Pages = isSd || isSmp;
+  const isSdOrSmp = isSd || isSmp;
   const levelBadgeLabel = isSd ? 'SD / MI' : isSmp ? 'SMP / MTs' : 'SMA / MA / SMK';
+  const resolvedRecs = resolveRecommendationsWithFallback(result);
 
   if (!result.isReleased && !isAdminViewing) {
     return (
@@ -205,7 +209,7 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
             className="w-full sm:w-auto px-5 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md shadow-blue-200 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
-            <span>{downloading ? 'Menyiapkan PDF...' : `Unduh Laporan PDF (${is2Pages ? '2 Hal' : '3 Hal'})`}</span>
+            <span>{downloading ? 'Menyiapkan PDF...' : 'Unduh Laporan PDF (3 Hal)'}</span>
           </button>
         </div>
       </div>
@@ -619,7 +623,7 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
             <div className="border-t border-slate-200 pt-3 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 font-medium gap-2">
               <span>1 | Unlock Your Potential Report</span>
               <span className="font-bold text-slate-700">@copyright Pak GuruAI</span>
-              <span>Halaman 1 dari {is2Pages ? 2 : 3}</span>
+              <span>Halaman 1 dari 3</span>
             </div>
           </div>
         </div>
@@ -739,85 +743,240 @@ export const StudentResultView: React.FC<StudentResultViewProps> = ({
             </div>
           </div>
 
-          {/* If SD or SMP -> Show bottom note & seal here */}
-          {is2Pages && (
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
-              <p className="font-bold">Catatan :</p>
-              <p>
-                Hasil laporan Unlock Your Potential bisa berubah tergantung kemampuan peserta belajar dan berinteraksi dengan lingkungannya.
-              </p>
-            </div>
-          )}
-
           {/* Halaman 2 Footer */}
           <div className="border-t border-slate-200 pt-3 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 font-medium gap-2">
             <span>2 | Unlock Your Potential Report</span>
             <span className="font-bold text-slate-700">@copyright Pak GuruAI</span>
-            <span>Halaman 2 dari {is2Pages ? 2 : 3}</span>
+            <span>Halaman 2 dari 3</span>
           </div>
         </div>
 
         {/* ========================================================= */}
-        {/* HALAMAN 3 DOKUMEN (SMA ONLY)                               */}
+        {/* HALAMAN 3 DOKUMEN                                          */}
+        {/* SD & SMP -> REKOMENDASI SEKOLAH LANJUTAN SMA / SMK & JURUSAN */}
+        {/* SMA / SMK -> REKOMENDASI PROGRAM STUDI & PTN               */}
         {/* ========================================================= */}
-        {!is2Pages && result.psychologyTrends.universityPrograms && (
-          <div className="p-6 sm:p-10 space-y-8">
-            <div className="border-b-2 border-blue-900 pb-2">
-              <span className="text-[11px] font-bold tracking-widest text-blue-900 uppercase">
-                3 | UNLOCK YOUR POTENTIAL REPORT - REKOMENDASI PROGRAM STUDI PTN / PTS
-              </span>
-            </div>
-
-            <div className="space-y-4">
-              <div className="bg-blue-900 text-white px-3 py-1.5 rounded-t-lg font-bold text-xs uppercase tracking-wider">
-                Saran Pilihan Program Studi di Perguruan Tinggi
-              </div>
-
-              <div className="space-y-3.5 text-xs text-slate-800 leading-relaxed">
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
-                  <h4 className="font-bold text-blue-900 text-sm">
-                    (1) Prioritas Utama, disarankan untuk memilih Program Studi :
-                  </h4>
-                  <p className="text-slate-700">
-                    {result.psychologyTrends.universityPrograms.priority1.join(', ')}.
-                  </p>
-                </div>
-
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
-                  <h4 className="font-bold text-blue-900 text-sm">
-                    (2) Prioritas Berikutnya, disarankan untuk memilih Program Studi :
-                  </h4>
-                  <p className="text-slate-700">
-                    {result.psychologyTrends.universityPrograms.priority2.join(', ')}.
-                  </p>
-                </div>
-
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
-                  <h4 className="font-bold text-blue-900 text-sm">
-                    (3) Prioritas Terakhir, alternatif bidang studi relevan :
-                  </h4>
-                  <p className="text-slate-700">
-                    {result.psychologyTrends.universityPrograms.priority3.join(', ')}.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
-              <p className="font-bold">Catatan :</p>
-              <p>
-                Hasil laporan Unlock Your Potential bisa berubah tergantung kemampuan peserta belajar dan berinteraksi dengan lingkungannya.
-              </p>
-            </div>
-
-            {/* Halaman 3 Footer */}
-            <div className="border-t border-slate-200 pt-3 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 font-medium gap-2">
-              <span>3 | Unlock Your Potential Report</span>
-              <span className="font-bold text-slate-700">@copyright Pak GuruAI</span>
-              <span>Halaman 3 dari 3</span>
-            </div>
+        <div className="p-6 sm:p-10 space-y-7">
+          <div className="border-b-2 border-blue-900 pb-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[11px] font-bold tracking-widest text-blue-900 uppercase">
+              {isSdOrSmp
+                ? '3 | UNLOCK YOUR POTENTIAL REPORT - ANALISA & REKOMENDASI SEKOLAH LANJUTAN (SMA / SMK & JURUSAN)'
+                : '3 | UNLOCK YOUR POTENTIAL REPORT - REKOMENDASI PROGRAM STUDI & PERGURUAN TINGGI NEGERI (PTN)'}
+            </span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+              <Database className="w-3 h-3 text-emerald-600" />
+              <span>Tersinkronisasi Real-Time</span>
+            </span>
           </div>
-        )}
+
+          {/* Analytical Sesi 6 Summary Box */}
+          <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-xl space-y-1.5 text-xs">
+            <h4 className="font-bold text-indigo-950 uppercase tracking-wide flex items-center gap-1.5">
+              <Compass className="w-4 h-4 text-indigo-600" />
+              <span>Hasil Analisa Minat &amp; Arah Studi Lanjutan (Integrasi Sesi 1–6)</span>
+            </h4>
+            <p className="text-slate-700 leading-relaxed">{resolvedRecs.analyticalInterestSummary}</p>
+          </div>
+
+          {isSdOrSmp && resolvedRecs.furtherSchoolRecommendations ? (
+            <div className="space-y-6">
+              {/* Target Sekolah Lanjutan & Transisi SMP */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div className="md:col-span-5 p-4 bg-blue-900 text-white rounded-xl space-y-1.5 shadow-xs">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200 block">
+                    Rekomendasi Bentuk Sekolah Lanjutan
+                  </span>
+                  <p className="text-xl font-black">
+                    Jenjang {resolvedRecs.furtherSchoolRecommendations.targetType}
+                  </p>
+                  <p className="text-xs text-blue-100 leading-relaxed">
+                    Potensi Daya Saing (PDS):{' '}
+                    <strong className="text-white font-mono">
+                      {result.psychologyTrends.highSchoolMajor.pdsScore.toFixed(2)}%
+                    </strong>
+                  </p>
+                </div>
+
+                <div className="md:col-span-7 p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-xs">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                    Arah Peminatan &amp; Klaster Kompetensi Utama
+                  </span>
+                  <p className="text-sm font-bold text-slate-900">
+                    {resolvedRecs.furtherSchoolRecommendations.primaryTrack}
+                  </p>
+                  {isSd && resolvedRecs.furtherSchoolRecommendations.smpBridgeNote && (
+                    <p className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded-lg p-2.5 mt-1 leading-relaxed">
+                      <strong>Jembatan Persiapan SMP/MTs:</strong>{' '}
+                      {resolvedRecs.furtherSchoolRecommendations.smpBridgeNote.replace('Persiapan Jenjang SMP/MTs: ', '')}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Specific SMA / SMK Majors Cards */}
+              <div className="space-y-3">
+                <div className="bg-blue-900 text-white px-3 py-1.5 rounded-t-lg font-bold text-xs uppercase tracking-wider flex items-center justify-between">
+                  <span>
+                    {isSd
+                      ? 'Proyeksi Rekomendasi Sekolah Lanjutan SMA / SMK & Jurusan Spesifik'
+                      : 'Rekomendasi Spesifik Sekolah Lanjutan (SMA Peminatan & SMK Jurusan)'}
+                  </span>
+                  <span className="text-[10px] font-normal text-blue-200">Urutan Prioritas Kecocokan</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {resolvedRecs.furtherSchoolRecommendations.specificMajors.map((major, idx) => (
+                    <div
+                      key={major.name}
+                      className={`p-4 rounded-xl border space-y-2 transition ${
+                        idx === 0
+                          ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs'
+                          : 'bg-slate-50 border-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
+                              major.schoolType === 'SMK'
+                                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                : major.schoolType === 'MA'
+                                ? 'bg-teal-100 text-teal-900 border-teal-300'
+                                : 'bg-indigo-100 text-indigo-900 border-indigo-300'
+                            }`}
+                          >
+                            {major.schoolType}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-500">
+                            Prioritas #{idx + 1}
+                          </span>
+                        </div>
+                        <span className="text-xs font-mono font-extrabold text-blue-900 bg-white px-2 py-0.5 rounded-lg border border-blue-200 shrink-0">
+                          Cocok {major.matchScore.toFixed(1)}%
+                        </span>
+                      </div>
+
+                      <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 leading-snug">
+                        {major.name}
+                      </h4>
+                      <p className="text-[11px] text-slate-600 leading-relaxed">{major.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Program Studi Priorities */}
+              {resolvedRecs.universityPrograms && (
+                <div className="space-y-3.5">
+                  <div className="bg-blue-900 text-white px-3 py-1.5 rounded-t-lg font-bold text-xs uppercase tracking-wider">
+                    Saran Pilihan Program Studi di Perguruan Tinggi
+                  </div>
+
+                  <div className="space-y-3 text-xs text-slate-800 leading-relaxed">
+                    <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-1.5">
+                      <h4 className="font-bold text-emerald-950 text-sm">
+                        (1) Prioritas Utama, disarankan untuk memilih Program Studi :
+                      </h4>
+                      <p className="text-slate-800 font-medium">
+                        {resolvedRecs.universityPrograms.priority1.join(', ')}.
+                      </p>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                      <h4 className="font-bold text-blue-900 text-sm">
+                        (2) Prioritas Berikutnya, disarankan untuk memilih Program Studi :
+                      </h4>
+                      <p className="text-slate-700">
+                        {resolvedRecs.universityPrograms.priority2.join(', ')}.
+                      </p>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                      <h4 className="font-bold text-blue-900 text-sm">
+                        (3) Prioritas Terakhir, alternatif bidang terapan / interdisipliner :
+                      </h4>
+                      <p className="text-slate-700">
+                        {resolvedRecs.universityPrograms.priority3.join(', ')}.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Recommended PTNs */}
+              {resolvedRecs.ptnRecommendations && resolvedRecs.ptnRecommendations.length > 0 && (
+                <div className="space-y-3.5">
+                  <div className="bg-blue-900 text-white px-3 py-1.5 rounded-t-lg font-bold text-xs uppercase tracking-wider flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>Rekomendasi Perguruan Tinggi Negeri (PTN) Tujuan</span>
+                    </span>
+                    <span className="text-[10px] font-normal text-blue-200">SNBP • SNBT • Mandiri / Vokasi</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    {resolvedRecs.ptnRecommendations.map((ptn, idx) => (
+                      <div
+                        key={ptn.universityName}
+                        className={`p-4 rounded-xl border space-y-2 ${
+                          idx === 0
+                            ? 'bg-blue-50/70 border-blue-300 shadow-2xs md:col-span-2'
+                            : 'bg-white border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-blue-900 text-white">
+                                #{idx + 1} {ptn.shortName}
+                              </span>
+                              <span className="text-[11px] text-slate-500 inline-flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-slate-400" />
+                                {ptn.location}
+                              </span>
+                            </div>
+                            <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 mt-1">
+                              {ptn.universityName}
+                            </h4>
+                          </div>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200 shrink-0">
+                            {ptn.focusCluster.split(',')[0]}
+                          </span>
+                        </div>
+
+                        <div className="text-xs space-y-1">
+                          <p className="text-slate-700">
+                            <span className="font-bold text-blue-950">Prodi Unggulan Sesuai Profil:</span>{' '}
+                            {ptn.matchedPrograms.join(' • ')}
+                          </p>
+                          <p className="text-[11px] text-slate-500 leading-relaxed">
+                            <strong>Strategi Seleksi:</strong> {ptn.admissionPathHint}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+            <p className="font-bold">Catatan :</p>
+            <p>
+              Hasil laporan Unlock Your Potential bisa berubah tergantung kemampuan peserta belajar dan berinteraksi dengan lingkungannya.
+            </p>
+          </div>
+
+          {/* Halaman 3 Footer */}
+          <div className="border-t border-slate-200 pt-3 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 font-medium gap-2">
+            <span>3 | Unlock Your Potential Report</span>
+            <span className="font-bold text-slate-700">@copyright Pak GuruAI</span>
+            <span>Halaman 3 dari 3</span>
+          </div>
+        </div>
       </div>
     </div>
   );

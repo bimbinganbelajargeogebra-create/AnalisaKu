@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { InstitutionSettings, TestResult } from '../types';
+import { resolveRecommendationsWithFallback } from './diagnosticEvaluator';
 import {
   generateBrainLobeImageDataUrl,
   generateHemispheresImageDataUrl,
@@ -8,8 +9,9 @@ import {
 export function generateDiagnosticPdf(result: TestResult, institution: InstitutionSettings): jsPDF {
   const isSd = result.educationLevel === 'SD';
   const isSmp = result.educationLevel === 'SMP';
-  const is2Pages = isSd || isSmp;
-  const levelHeaderLabel = isSd ? 'SD / MI' : isSmp ? 'SMP / MTs' : 'SMA / MA';
+  const isSdOrSmp = isSd || isSmp;
+  const levelHeaderLabel = isSd ? 'SD / MI' : isSmp ? 'SMP / MTs' : 'SMA / MA / SMK';
+  const resolvedRecs = resolveRecommendationsWithFallback(result);
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -336,7 +338,7 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
     y + 21.4
   );
 
-  drawFooter(doc, 1, is2Pages ? 2 : 3);
+  drawFooter(doc, 1, 3);
 
   // -------------------------------------------------------------
   // PAGE 2 (Adapted for SD / SMP vs SMA)
@@ -489,154 +491,292 @@ export function generateDiagnosticPdf(result: TestResult, institution: Instituti
 
   y += 7.5;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.8);
+  doc.setFontSize(6.6);
   doc.setTextColor(30, 41, 59);
-  doc.text('(1) Saran lomba yang diikuti adalah bidang :', margin + 2, y);
+  doc.text('(1) Saran lomba yang diikuti :', margin + 2, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(result.psychologyTrends.competitionRecommendation, margin + 56, y);
+  const compSplit = doc.splitTextToSize(result.psychologyTrends.competitionRecommendation, contentWidth - 44);
+  doc.text(compSplit.slice(0, 2), margin + 43, y);
 
-  y += 4.3;
+  y += compSplit.length > 1 ? 6.8 : 4.6;
   doc.setFont('helvetica', 'bold');
-  doc.text('(2) Saran penjurusan untuk jenjang lebih tinggi :', margin + 2, y);
+  doc.text('(2) Saran penjurusan lanjutan :', margin + 2, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(
-    `${result.psychologyTrends.highSchoolMajor.stream} dengan PDS : ${result.psychologyTrends.highSchoolMajor.pdsScore.toFixed(2)}%`,
-    margin + 63,
-    y
-  );
-
-  // If SD or SMP -> Add bottom notes on Page 2 and seal (2 pages total)
-  if (is2Pages) {
-    y = Math.min(y + 6, pageHeight - 25);
-    doc.setFillColor(254, 243, 199);
-    doc.setDrawColor(245, 158, 11);
-    doc.roundedRect(margin, y, contentWidth, 11, 1.5, 1.5, 'FD');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.8);
-    doc.setTextColor(180, 83, 9);
-    doc.text('Catatan :', margin + 4, y + 4.2);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6);
-    doc.setTextColor(146, 64, 14);
-    doc.text(
-      'Hasil pemetaan Unlock Your Potential bisa berubah tergantung kemampuan peserta belajar dan berinteraksi dengan lingkungannya.',
-      margin + 4,
-      y + 8
-    );
-
-    drawFooter(doc, 2, 2);
-    return doc;
-  }
+  const majorText = `${result.psychologyTrends.highSchoolMajor.stream} (PDS: ${result.psychologyTrends.highSchoolMajor.pdsScore.toFixed(2)}%)`;
+  const majorSplit = doc.splitTextToSize(majorText, contentWidth - 46);
+  doc.text(majorSplit.slice(0, 2), margin + 45, y);
 
   drawFooter(doc, 2, 3);
 
   // -------------------------------------------------------------
-  // PAGE 3 (For SMA - University Programs)
+  // PAGE 3
+  // SD & SMP -> Analisa & Rekomendasi Sekolah Lanjutan (SMA/SMK & Jurusan)
+  // SMA / SMK -> Rekomendasi Program Studi & Perguruan Tinggi Negeri (PTN)
   // -------------------------------------------------------------
   doc.addPage();
-  drawHeader(doc, 3, institution, 'SMA / MA');
+  drawHeader(doc, 3, institution, levelHeaderLabel);
 
-  y = 30;
-  doc.setFillColor(30, 58, 138);
-  doc.rect(margin, y, contentWidth, 5.5, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(255, 255, 255);
-  doc.text('Saran Pilihan Program Studi di Perguruan Tinggi', margin + 3, y + 4);
+  y = 26;
 
-  y += 8.5;
-  const univ = result.psychologyTrends.universityPrograms || {
-    priority1: [],
-    priority2: [],
-    priority3: [],
-  };
+  // Analytical Summary Box (Sesi 1-6)
+  doc.setFillColor(238, 242, 255);
+  doc.setDrawColor(165, 180, 252);
+  const summaryLines = doc.splitTextToSize(resolvedRecs.analyticalInterestSummary || '-', contentWidth - 8);
+  const summaryH = Math.max(13, 6 + summaryLines.length * 2.8);
+  doc.roundedRect(margin, y, contentWidth, summaryH, 1.5, 1.5, 'FD');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.setTextColor(30, 58, 138);
-  doc.text('(1) Prioritas Utama, disarankan untuk memilih Program Studi :', margin + 2, y);
+  doc.setFontSize(7);
+  doc.setTextColor(49, 46, 129);
+  doc.text('HASIL ANALISA MINAT & ARAH STUDI LANJUTAN (INTEGRASI SESI 1-6)', margin + 4, y + 4.3);
 
-  y += 4;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.2);
+  doc.setFontSize(6.1);
   doc.setTextColor(51, 65, 85);
-  const p1Text = univ.priority1.join(', ') + '.';
-  const p1Split = doc.splitTextToSize(p1Text, contentWidth - 4);
-  doc.text(p1Split, margin + 4, y);
+  doc.text(summaryLines, margin + 4, y + 8.2);
 
-  y += p1Split.length * 3.2 + 6;
+  y += summaryH + 4;
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.setTextColor(30, 58, 138);
-  doc.text('(2) Prioritas Berikutnya, disarankan untuk memilih Program Studi :', margin + 2, y);
+  if (isSdOrSmp && resolvedRecs.furtherSchoolRecommendations) {
+    const rec = resolvedRecs.furtherSchoolRecommendations;
 
-  y += 4;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.2);
-  doc.setTextColor(51, 65, 85);
-  const p2Text = univ.priority2.join(', ') + '.';
-  const p2Split = doc.splitTextToSize(p2Text, contentWidth - 4);
-  doc.text(p2Split, margin + 4, y);
+    // Target School Type + Primary Track Overview
+    doc.setFillColor(30, 58, 138);
+    doc.roundedRect(margin, y, 52, 18, 1.5, 1.5, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.8);
+    doc.setTextColor(191, 219, 254);
+    doc.text('TARGET SEKOLAH LANJUTAN', margin + 3.5, y + 4.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Jenjang ${rec.targetType}`, margin + 3.5, y + 10.2);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6);
+    doc.setTextColor(224, 231, 255);
+    doc.text(`Skor PDS: ${result.psychologyTrends.highSchoolMajor.pdsScore.toFixed(2)}%`, margin + 3.5, y + 15);
 
-  y += p2Split.length * 3.2 + 6;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(203, 213, 225);
+    doc.roundedRect(margin + 55, y, contentWidth - 55, 18, 1.5, 1.5, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.2);
+    doc.setTextColor(71, 85, 105);
+    doc.text('ARAH PEMINATAN & KOMPETENSI UTAMA :', margin + 58.5, y + 4.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.2);
+    doc.setTextColor(15, 23, 42);
+    const trackSplit = doc.splitTextToSize(rec.primaryTrack, contentWidth - 62);
+    doc.text(trackSplit.slice(0, 2), margin + 58.5, y + 9.2);
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.setTextColor(30, 58, 138);
-  doc.text('(3) Prioritas Terakhir, alternatif bidang interdisipliner :', margin + 2, y);
+    y += 21;
 
-  y += 4;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.2);
-  doc.setTextColor(51, 65, 85);
-  const p3Text = univ.priority3.join(', ') + '.';
-  const p3Split = doc.splitTextToSize(p3Text, contentWidth - 4);
-  doc.text(p3Split, margin + 4, y);
+    if (isSd && rec.smpBridgeNote) {
+      const bridgeLines = doc.splitTextToSize(rec.smpBridgeNote, contentWidth - 8);
+      const bridgeH = Math.max(10, 5 + bridgeLines.length * 2.8);
+      doc.setFillColor(255, 251, 235);
+      doc.setDrawColor(252, 211, 77);
+      doc.roundedRect(margin, y, contentWidth, bridgeH, 1.5, 1.5, 'FD');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6);
+      doc.setTextColor(146, 64, 14);
+      doc.text(bridgeLines, margin + 4, y + 4.2);
+      y += bridgeH + 4;
+    }
 
-  // Catatan
-  y = 210;
+    // Specific SMA / SMK Major Recommendations
+    doc.setFillColor(30, 58, 138);
+    doc.rect(margin, y, contentWidth, 5.5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.2);
+    doc.setTextColor(255, 255, 255);
+    doc.text(
+      isSd
+        ? 'Proyeksi Rekomendasi Sekolah Lanjutan SMA / SMK & Jurusan Spesifik'
+        : 'Rekomendasi Spesifik Sekolah Lanjutan (SMA Peminatan & SMK Jurusan)',
+      margin + 3,
+      y + 3.9
+    );
+
+    y += 8;
+    rec.specificMajors.forEach((major, idx) => {
+      const reasonLines = doc.splitTextToSize(major.reason, contentWidth - 10);
+      const cardH = Math.max(19, 12.5 + reasonLines.length * 2.7);
+
+      if (idx === 0) {
+        doc.setFillColor(236, 253, 245);
+        doc.setDrawColor(110, 231, 183);
+      } else {
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(203, 213, 225);
+      }
+      doc.roundedRect(margin, y, contentWidth, cardH, 1.5, 1.5, 'FD');
+
+      // Badge schoolType
+      const badgeColor: [number, number, number] =
+        major.schoolType === 'SMK'
+          ? [217, 119, 6]
+          : major.schoolType === 'MA'
+          ? [13, 148, 136]
+          : [37, 99, 235];
+      doc.setFillColor(...badgeColor);
+      doc.roundedRect(margin + 3.5, y + 3, 13, 4.5, 0.8, 0.8, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6);
+      doc.setTextColor(255, 255, 255);
+      doc.text(major.schoolType, margin + 10, y + 6.1, { align: 'center' });
+
+      // Major Title
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.4);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`#${idx + 1}  ${major.name}`, margin + 19, y + 6.2);
+
+      // Match Score on Right
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(30, 58, 138);
+      doc.text(`Cocok ${major.matchScore.toFixed(1)}%`, pageWidth - margin - 3.5, y + 6.2, { align: 'right' });
+
+      // Reason
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5.9);
+      doc.setTextColor(71, 85, 105);
+      doc.text(reasonLines, margin + 4, y + 10.8);
+
+      y += cardH + 3;
+    });
+  } else {
+    // SMA / SMK: University Study Programs & PTN Recommendations
+    doc.setFillColor(30, 58, 138);
+    doc.rect(margin, y, contentWidth, 5.2, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.2);
+    doc.setTextColor(255, 255, 255);
+    doc.text('Saran Pilihan Program Studi di Perguruan Tinggi', margin + 3, y + 3.7);
+
+    y += 7.2;
+    const univ = resolvedRecs.universityPrograms || {
+      priority1: [],
+      priority2: [],
+      priority3: [],
+    };
+
+    const univBlocks = [
+      { title: '(1) Prioritas Utama, Program Studi yang Sangat Disarankan :', items: univ.priority1 },
+      { title: '(2) Prioritas Berikutnya, Alternatif Program Studi Relevan :', items: univ.priority2 },
+      { title: '(3) Prioritas Ketiga, Bidang Terapan / Interdisipliner :', items: univ.priority3 },
+    ];
+
+    univBlocks.forEach((blk) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.8);
+      doc.setTextColor(30, 58, 138);
+      doc.text(blk.title, margin + 2, y);
+      y += 3.3;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5.8);
+      doc.setTextColor(51, 65, 85);
+      const splitTxt = doc.splitTextToSize(blk.items.join(', ') + '.', contentWidth - 4);
+      doc.text(splitTxt.slice(0, 3), margin + 4, y);
+      y += Math.min(splitTxt.length, 3) * 2.6 + 2.8;
+    });
+
+    // PTN Recommendations Section
+    const ptns = resolvedRecs.ptnRecommendations || [];
+    if (ptns.length > 0) {
+      y += 1.5;
+      doc.setFillColor(30, 58, 138);
+      doc.rect(margin, y, contentWidth, 5.2, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.2);
+      doc.setTextColor(255, 255, 255);
+      doc.text('Rekomendasi Perguruan Tinggi Negeri (PTN) Tujuan Sesuai Klaster', margin + 3, y + 3.7);
+
+      y += 7;
+      ptns.slice(0, 5).forEach((ptn, idx) => {
+        const prodiLine = `Prodi Sesuai: ${ptn.matchedPrograms.join(' | ')}`;
+        const pathLines = doc.splitTextToSize(`Strategi: ${ptn.admissionPathHint}`, contentWidth - 8);
+        const cardH = Math.max(17.5, 11.5 + pathLines.length * 2.5);
+
+        if (idx === 0) {
+          doc.setFillColor(239, 246, 255);
+          doc.setDrawColor(147, 197, 253);
+        } else {
+          doc.setFillColor(248, 250, 252);
+          doc.setDrawColor(203, 213, 225);
+        }
+        doc.roundedRect(margin, y, contentWidth, cardH, 1.3, 1.3, 'FD');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.1);
+        doc.setTextColor(30, 58, 138);
+        doc.text(`#${idx + 1} ${ptn.universityName}`, margin + 3.5, y + 4.4);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(5.8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(ptn.location, pageWidth - margin - 3.5, y + 4.4, { align: 'right' });
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(5.8);
+        doc.setTextColor(15, 23, 42);
+        const prodiLines = doc.splitTextToSize(prodiLine, contentWidth - 8);
+        doc.text(prodiLines.slice(0, 1), margin + 3.5, y + 8.3);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(5.5);
+        doc.setTextColor(71, 85, 105);
+        doc.text(pathLines.slice(0, 2), margin + 3.5, y + 11.7);
+
+        y += cardH + 2.3;
+      });
+    }
+  }
+
+  // Catatan Penting (Positioned safely without overlapping PTN/Major cards)
+  y = Math.min(Math.max(y + 2, 224), 237);
+  const noteLines = doc.splitTextToSize(
+    'Hasil laporan Unlock Your Potential ini bersifat dinamis dan dapat berkembang sesuai motivasi belajar, pelatihan terbimbing, serta interaksi lingkungan siswa.',
+    contentWidth - 8
+  );
+  const noteH = Math.max(12, 6.5 + noteLines.length * 2.8);
   doc.setFillColor(254, 243, 199);
   doc.setDrawColor(245, 158, 11);
-  doc.roundedRect(margin, y, contentWidth, 14, 1.5, 1.5, 'FD');
+  doc.roundedRect(margin, y, contentWidth, noteH, 1.5, 1.5, 'FD');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
+  doc.setFontSize(6.8);
   doc.setTextColor(180, 83, 9);
-  doc.text('Catatan Penting :', margin + 4, y + 5);
+  doc.text('Catatan Penting :', margin + 4, y + 4.2);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
+  doc.setFontSize(6);
   doc.setTextColor(146, 64, 14);
-  doc.text(
-    'Hasil laporan Unlock Your Potential ini bersifat dinamis dan dapat berkembang sesuai motivasi belajar, pelatihan terbimbing, serta interaksi lingkungan siswa.',
-    margin + 4,
-    y + 9.5
-  );
+  doc.text(noteLines, margin + 4, y + 8.2);
 
   // Lembar Pengesahan
-  y += 24;
+  y += noteH + 3.5;
   const sigX = margin + contentWidth - 65;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
+  doc.setFontSize(6.8);
   doc.setTextColor(71, 85, 105);
   doc.text(`Diterbitkan secara sah oleh :`, sigX, y);
   doc.setFont('helvetica', 'bold');
-  doc.text(institution.institutionName, sigX, y + 4.5);
+  doc.text(institution.institutionName, sigX, y + 4);
   doc.setFont('helvetica', 'normal');
-  doc.text('Tim Ahli Unlock Your Potential', sigX, y + 9);
+  doc.text('Tim Ahli Unlock Your Potential', sigX, y + 8);
 
   doc.setDrawColor(37, 99, 235);
   doc.setLineWidth(0.6);
-  doc.roundedRect(sigX - 2, y + 12, 58, 14, 2, 2, 'D');
+  doc.roundedRect(sigX - 2, y + 10.5, 58, 13, 2, 2, 'D');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.5);
+  doc.setFontSize(6.2);
   doc.setTextColor(37, 99, 235);
-  doc.text('TERVERIFIKASI & TERCATAT RESMI', sigX + 2, y + 18);
-  doc.setFontSize(5.5);
-  doc.text(`ID SISTEM : ${result.regNumber}`, sigX + 2, y + 23);
+  doc.text('TERVERIFIKASI & TERCATAT RESMI', sigX + 2, y + 16);
+  doc.setFontSize(5.4);
+  doc.text(`ID SISTEM : ${result.regNumber}`, sigX + 2, y + 20.5);
 
   drawFooter(doc, 3, 3);
 

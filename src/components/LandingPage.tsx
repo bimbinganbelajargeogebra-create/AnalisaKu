@@ -55,15 +55,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       features: [
         'Bahasa soal disesuaikan ramah anak & mudah dipahami murid SD',
         'Dilengkapi diagram figural visual (menghitung kubus 3D & bentuk ruang)',
-        'Membantu orang tua & guru memahami gaya belajar (visual, auditori, kinestetik)',
-        'Unlock Your Potential Report 2 halaman yang ringkas, jelas, dan mudah dipahami orang tua',
+        'Membantu orang tua & guru memahami gaya belajar serta proyeksi transisi SMP',
+        'Unlock Your Potential Report 3 halaman memuat rekomendasi spesifik SMA/SMK & jurusannya',
       ],
-      sampleQuestions: 'Hitung jumlah kubus pada tumpukan, analogi gambar benda sehari-hari, dan pola angka sederhana.',
-      reportFormat: 'Laporan 2 Halaman (Fokus: IQ, Kecerdasan Dominan, Gaya Belajar Sensori & Saran Guru/Ortu)',
+      sampleQuestions: 'Hitung jumlah kubus pada tumpukan, analogi gambar, pola angka, serta analisa minat belajar.',
+      reportFormat: 'Laporan 3 Halaman (IQ, 8 Kecerdasan, Gaya Belajar, Proyeksi SMA/SMK & Jurusan Spesifik)',
     },
     SMP: {
       title: 'Jenjang SMP / MTs (Kelas 7, 8, 9)',
-      tagline: 'Memetakan Minat, Logika Berpikir & Kesiapan Menuju SMA / SMK',
+      tagline: 'Memetakan Minat, Logika Berpikir & Rekomendasi Sekolah Lanjutan SMA / SMK',
       badgeColor: 'bg-sky-100 text-sky-900 border-sky-300',
       activeTabClass: 'bg-sky-600 text-white shadow-md shadow-sky-200',
       accentBg: 'bg-sky-50/70 border-sky-200',
@@ -71,27 +71,27 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       features: [
         'Mengukur daya nalar silogisme, logika analitik, dan verbal komprehensif',
         'Analisis dominasi belahan otak kiri (logis) vs otak kanan (kreatif)',
-        'Rekomendasi pemilihan jalur kelanjutan studi (SMA IPA/IPS/Bahasa vs SMK Kejuruan)',
-        'Laporan resmi 2 halaman dilengkapi saran strategi belajar mandiri',
+        'Analisa & rekomendasi spesifik sekolah lanjutan SMA (MIPA/IPS/Bahasa) vs SMK (RPL/TJKT/DKV/AKL/Farmasi)',
+        'Laporan resmi 3 halaman dilengkapi skor kecocokan jurusan & strategi belajar',
       ],
-      sampleQuestions: 'Pola deret angka, silogisme premis logika, relasi kata analogi, dan kubus berputar.',
-      reportFormat: 'Laporan 2 Halaman (Fokus: Profil IQ, Radar 8 Kecerdasan, Otak Kiri/Kanan & Rekomendasi SMA/SMK)',
+      sampleQuestions: 'Pola deret angka, silogisme premis logika, kubus berputar, dan analisa peminatan SMA/SMK.',
+      reportFormat: 'Laporan 3 Halaman (Profil IQ, Radar 8 Kecerdasan, Otak Kiri/Kanan & Jurusan SMA/SMK)',
     },
     SMA: {
       title: 'Jenjang SMA / MA / SMK (Kelas 10, 11, 12)',
-      tagline: 'Rekomendasi Jurusan Kuliah, Potensi Daya Saing & Prospek Karir Masa Depan',
+      tagline: 'Rekomendasi Program Studi, Daftar PTN Terbaik & Prospek Karir Masa Depan',
       badgeColor: 'bg-indigo-100 text-indigo-900 border-indigo-300',
       activeTabClass: 'bg-indigo-600 text-white shadow-md shadow-indigo-200',
       accentBg: 'bg-indigo-50/70 border-indigo-200',
       icon: GraduationCap,
       features: [
-        'Instrumen Unlock Your Potential terpadu 120 butir soal penalaran dan inventori psikometrik',
+        'Instrumen Unlock Your Potential terpadu 130 butir soal penalaran, inventori & analisa studi lanjut',
         'Analisis 4 lobus otak lengkap (Frontal, Parietal, Occipital, Temporal)',
-        'Estimasi Potensi Daya Saing (PDS) untuk seleksi perguruan tinggi negeri / swasta',
-        'Laporan lengkap 3 halaman memuat 3 klaster prioritas program studi kuliah',
+        'Estimasi Potensi Daya Saing (PDS) & rekomendasi 5 Perguruan Tinggi Negeri (PTN) terarah',
+        'Laporan lengkap 3 halaman memuat 3 klaster prioritas program studi & strategi jalur masuk PTN',
       ],
-      sampleQuestions: 'Penalaran analitik kompleks, deret logika bersusun, diagram spasial 3D, dan inventori minat.',
-      reportFormat: 'Laporan Lengkap 3 Halaman (IQ, Lobus Otak, Gaya Belajar, Rekomendasi Jurusan Prioritas 1, 2, 3)',
+      sampleQuestions: 'Penalaran analitik kompleks, deret logika bersusun, diagram 3D, inventori minat & klaster PTN.',
+      reportFormat: 'Laporan Lengkap 3 Halaman (IQ, Lobus Otak, Program Studi Prioritas 1-3 & Rekomendasi PTN)',
     },
   };
 
@@ -100,7 +100,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const faqs = [
     {
       q: 'Bagaimana jika koneksi internet terputus saat sedang mengerjakan tes?',
-      a: 'Jangan panik! Aplikasi ini dilengkapi sistem Auto-Save ke Local Storage browser. Setiap jawaban yang kamu klik langsung tersimpan secara aman di perangkatmu. Kamu bisa tetap lanjut menjawab soal, dan sambungkan kembali internet saat akan mengirimkan hasil.',
+      a: 'Jangan panik! Aplikasi ini dilengkapi sistem Auto-Save ke Local Storage browser dan sinkronisasi real-time ke Firebase. Setiap jawaban yang kamu klik langsung tersimpan secara aman di perangkatmu.',
     },
     {
       q: 'Apakah tes ini cocok dan mudah dikerjakan oleh anak SD?',
@@ -108,7 +108,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     },
     {
       q: 'Berapa lama durasi pengerjaan tes ini?',
-      a: 'Tes terdiri dari 5 sesi terstruktur dengan total waktu sekitar 65 hingga 75 menit. Masing-masing sesi memiliki pengatur waktu otomatis dan siswa dapat melihat jumlah sisa soal yang belum dikerjakan secara transparan.',
+      a: 'Tes terdiri dari 6 sesi terstruktur dengan total waktu sekitar 75 hingga 80 menit. Masing-masing sesi memiliki pengatur waktu otomatis dan siswa dapat melihat jumlah sisa soal yang belum dikerjakan secara transparan.',
     },
     {
       q: 'Kapan dan bagaimana siswa menerima Unlock Your Potential Report?',
@@ -214,15 +214,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               {/* Quick Metrics Bar */}
               <div className="pt-4 grid grid-cols-3 gap-3 border-t border-slate-200 text-center lg:text-left">
                 <div>
-                  <p className="text-xl sm:text-2xl font-black text-slate-900">120</p>
-                  <p className="text-xs text-slate-500 font-semibold">Butir Soal & Inventori</p>
+                  <p className="text-xl sm:text-2xl font-black text-slate-900">130</p>
+                  <p className="text-xs text-slate-500 font-semibold">Butir Soal &amp; Analisa</p>
                 </div>
                 <div>
-                  <p className="text-xl sm:text-2xl font-black text-slate-900">5 Sesi</p>
+                  <p className="text-xl sm:text-2xl font-black text-slate-900">6 Sesi</p>
                   <p className="text-xs text-slate-500 font-semibold">Waktu Terstruktur</p>
                 </div>
                 <div>
-                  <p className="text-xl sm:text-2xl font-black text-slate-900">2 - 3 Hal</p>
+                  <p className="text-xl sm:text-2xl font-black text-slate-900">3 Hal</p>
                   <p className="text-xs text-slate-500 font-semibold">Unlock Your Potential Report PDF</p>
                 </div>
               </div>
@@ -493,27 +493,27 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* 5 SESSIONS OVERVIEW */}
+      {/* 6 SESSIONS OVERVIEW */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-slate-900 rounded-3xl text-white p-6 sm:p-10 space-y-6">
           <div className="max-w-3xl space-y-2">
             <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
-              Struktur Sesi Unlock Your Potential (5 Sesi)
+              Struktur Sesi Unlock Your Potential (6 Sesi)
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-              Pengerjaan Bertahap yang Terstruktur & Nyaman
+              Pengerjaan Bertahap yang Terstruktur &amp; Nyaman
             </h2>
             <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
-              Siswa mengerjakan tes secara berurutan. Setiap sesi memiliki panduan instruksi dan batas waktu yang wajar agar konsentrasi tetap terjaga.
+              Siswa mengerjakan tes secara berurutan. Setiap sesi memiliki panduan instruksi dan batas waktu yang wajar, ditutup dengan analisa arah sekolah lanjutan SMA/SMK atau Program Studi &amp; PTN.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
             <div className="bg-slate-800/80 border border-slate-700/70 p-4 rounded-2xl space-y-2">
               <span className="text-[10px] font-black tracking-wider text-indigo-400 bg-indigo-950/70 px-2 py-0.5 rounded-md inline-block">
                 SESI 1
               </span>
-              <h4 className="text-sm font-bold text-white">Numerik & Hitung</h4>
+              <h4 className="text-sm font-bold text-white">Numerik &amp; Hitung</h4>
               <p className="text-xs text-slate-400">Soal #1 s.d. #10</p>
               <div className="flex items-center gap-1.5 text-xs text-amber-400 pt-1 font-semibold">
                 <Clock className="w-3.5 h-3.5" />
@@ -525,7 +525,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <span className="text-[10px] font-black tracking-wider text-indigo-400 bg-indigo-950/70 px-2 py-0.5 rounded-md inline-block">
                 SESI 2
               </span>
-              <h4 className="text-sm font-bold text-white">Verbal & Pola Kata</h4>
+              <h4 className="text-sm font-bold text-white">Verbal &amp; Pola Kata</h4>
               <p className="text-xs text-slate-400">Soal #11 s.d. #20</p>
               <div className="flex items-center gap-1.5 text-xs text-amber-400 pt-1 font-semibold">
                 <Clock className="w-3.5 h-3.5" />
@@ -537,7 +537,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <span className="text-[10px] font-black tracking-wider text-indigo-400 bg-indigo-950/70 px-2 py-0.5 rounded-md inline-block">
                 SESI 3
               </span>
-              <h4 className="text-sm font-bold text-white">Silogisme & Logika</h4>
+              <h4 className="text-sm font-bold text-white">Silogisme &amp; Logika</h4>
               <p className="text-xs text-slate-400">Soal #21 s.d. #30</p>
               <div className="flex items-center gap-1.5 text-xs text-amber-400 pt-1 font-semibold">
                 <Clock className="w-3.5 h-3.5" />
@@ -549,7 +549,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <span className="text-[10px] font-black tracking-wider text-indigo-400 bg-indigo-950/70 px-2 py-0.5 rounded-md inline-block">
                 SESI 4
               </span>
-              <h4 className="text-sm font-bold text-white">Spasial & Figural</h4>
+              <h4 className="text-sm font-bold text-white">Spasial &amp; Figural</h4>
               <p className="text-xs text-slate-400">Soal #31 s.d. #40</p>
               <div className="flex items-center gap-1.5 text-xs text-amber-400 pt-1 font-semibold">
                 <Clock className="w-3.5 h-3.5" />
@@ -566,6 +566,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="flex items-center gap-1.5 text-xs text-amber-400 pt-1 font-semibold">
                 <Clock className="w-3.5 h-3.5" />
                 <span>20 Menit</span>
+              </div>
+            </div>
+
+            <div className="bg-indigo-900/60 border border-indigo-500/60 p-4 rounded-2xl space-y-2">
+              <span className="text-[10px] font-black tracking-wider text-emerald-300 bg-emerald-950/70 px-2 py-0.5 rounded-md inline-block">
+                SESI 6 • BARU
+              </span>
+              <h4 className="text-sm font-bold text-white">Analisa &amp; Arah Studi Lanjutan</h4>
+              <p className="text-xs text-indigo-200">Soal #121 s.d. #130 (Jurusan SMA/SMK atau Prodi &amp; PTN)</p>
+              <div className="flex items-center gap-1.5 text-xs text-emerald-300 pt-1 font-semibold">
+                <Clock className="w-3.5 h-3.5" />
+                <span>10 Menit</span>
               </div>
             </div>
           </div>

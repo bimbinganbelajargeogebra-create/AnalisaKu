@@ -61,7 +61,7 @@
     },
     "TestResult": {
       "title": "TestResult",
-      "description": "Hasil analisa diagnostik lengkap sesuai format laporan PDF",
+      "description": "Hasil analisa diagnostik lengkap termasuk rekomendasi sekolah lanjutan SMA/SMK & jurusan (SD/SMP) serta program studi & PTN (SMA/SMK)",
       "type": "object",
       "properties": {
         "studentId": { "type": "string", "maxLength": 100 },
@@ -77,7 +77,10 @@
         "iqCategoryRange": { "type": "string", "maxLength": 30 },
         "multipleIntelligences": { "type": "object" },
         "brainAnalysis": { "type": "object" },
-        "psychologyTrends": { "type": "object" },
+        "psychologyTrends": {
+          "type": "object",
+          "description": "Berisi dominasi otak, karakteristik, furtherSchoolRecommendations (SD/SMP), universityPrograms & ptnRecommendations (SMA/SMK), serta analyticalInterestSummary"
+        },
         "isReleased": { "type": "boolean" },
         "evaluatedAt": { "type": "string", "maxLength": 50 },
         "completionStatus": { "type": "string", "enum": ["completed", "locked_violation"] },

@@ -190,8 +190,8 @@ export const StudentRegisterModal: React.FC<StudentRegisterModalProps> = ({
                   {educationLevel === 'SMA' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                 </div>
                 <div>
-                  <span className="block text-xs sm:text-sm font-bold">Jenjang SMA / MA</span>
-                  <span className="text-[10px] text-slate-500 font-normal">Soal terstandar tingkat SMA</span>
+                  <span className="block text-xs sm:text-sm font-bold">Jenjang SMA / MA / SMK</span>
+                  <span className="text-[10px] text-slate-500 font-normal">Soal terstandar tingkat SMA/SMK</span>
                 </div>
               </button>
             </div>
@@ -301,9 +301,12 @@ export const StudentRegisterModal: React.FC<StudentRegisterModalProps> = ({
                       </>
                     ) : (
                       <>
-                        <option value="X (Sepuluh)">Kelas X (Sepuluh)</option>
-                        <option value="XI (Sebelas)">Kelas XI (Sebelas)</option>
-                        <option value="XII (Dua Belas)">Kelas XII (Dua Belas)</option>
+                        <option value="X (Sepuluh) SMA">Kelas X (Sepuluh) SMA / MA</option>
+                        <option value="XI (Sebelas) SMA">Kelas XI (Sebelas) SMA / MA</option>
+                        <option value="XII (Dua Belas) SMA">Kelas XII (Dua Belas) SMA / MA</option>
+                        <option value="X (Sepuluh) SMK">Kelas X (Sepuluh) SMK</option>
+                        <option value="XI (Sebelas) SMK">Kelas XI (Sebelas) SMK</option>
+                        <option value="XII (Dua Belas) SMK">Kelas XII (Dua Belas) SMK</option>
                         <option value="Alumni / Persiapan PTN">Alumni / GAP Year</option>
                       </>
                     )}

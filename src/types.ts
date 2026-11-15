@@ -44,7 +44,7 @@ export interface TestSessionState {
 
 export interface Question {
   id: number;
-  session: number; // 1 to 5
+  session: number; // 1 to 6
   text: string;
   options: { label: string; text: string }[];
   correctAnswer?: string; // For Sesi 1 - 4
@@ -103,6 +103,29 @@ export interface BrainAnalysis {
   determinationTrait: string;
 }
 
+export interface FurtherSchoolMajor {
+  name: string;
+  schoolType: 'SMA' | 'SMK' | 'MA';
+  matchScore: number;
+  reason: string;
+}
+
+export interface FurtherSchoolRecommendation {
+  targetType: 'SMA' | 'SMK' | 'SMA / SMK';
+  primaryTrack: string;
+  specificMajors: FurtherSchoolMajor[];
+  smpBridgeNote?: string;
+}
+
+export interface PtnRecommendation {
+  universityName: string;
+  shortName: string;
+  location: string;
+  focusCluster: string;
+  matchedPrograms: string[];
+  admissionPathHint: string;
+}
+
 export interface PsychologyTrends {
   leftBrainDominance: number;
   rightBrainDominance: number;
@@ -129,6 +152,9 @@ export interface PsychologyTrends {
     priority2: string[];
     priority3: string[];
   };
+  furtherSchoolRecommendations?: FurtherSchoolRecommendation;
+  ptnRecommendations?: PtnRecommendation[];
+  analyticalInterestSummary?: string;
 }
 
 export interface TestResult {

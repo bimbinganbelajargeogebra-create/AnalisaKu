@@ -15,6 +15,8 @@ import {
 } from '../services/dbService';
 import { testConnection } from '../firebase';
 import { generateDiagnosticPdf } from '../utils/pdfGenerator';
+import { getQuestionsForLevel } from '../data/diagnosticQuestions';
+import { resolveRecommendationsWithFallback } from '../utils/diagnosticEvaluator';
 import {
   Shield,
   Settings,
@@ -445,7 +447,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     )}
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    No Reg: <span className="font-mono font-semibold text-slate-700">{sess.regNumber}</span> • Terjawab: <strong className="text-slate-800">{sess.answeredCount}/120</strong>
+                    No Reg: <span className="font-mono font-semibold text-slate-700">{sess.regNumber}</span> • Terjawab:{' '}
+                    <strong className="text-slate-800">
+                      {sess.answeredCount}/{getQuestionsForLevel(sess.educationLevel || 'SMA').length}
+                    </strong>
                   </p>
                   {sess.unlockRequestNote && (
                     <p className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 italic">
@@ -597,7 +602,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <FileText className="w-12 h-12 text-slate-300 mx-auto" />
               <h3 className="text-base font-bold text-slate-700">Belum Ada Hasil Ujian</h3>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Setelah siswa menyelesaikan 5 sesi tes dan konfirmasi data, hasil analisis lengkap akan otomatis masuk ke daftar ini.
+                Setelah siswa menyelesaikan 6 sesi tes dan konfirmasi data, hasil analisis lengkap akan otomatis masuk ke daftar ini.
               </p>
             </div>
           ) : (
@@ -659,11 +664,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </div>
                           )}
                         </td>
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 max-w-[230px]">
                           <span className="font-semibold text-slate-800">{res.brainAnalysis.primaryLearnerType}</span>
                           <span className="text-[10px] text-slate-500 block">
                             Otak Kiri: {res.psychologyTrends.leftBrainDominance}%
                           </span>
+                          {(() => {
+                            const recs = resolveRecommendationsWithFallback(res);
+                            if ((res.educationLevel === 'SD' || res.educationLevel === 'SMP') && recs.furtherSchoolRecommendations) {
+                              const topMajor = recs.furtherSchoolRecommendations.specificMajors[0];
+                              return (
+                                <span
+                                  className="text-[10px] font-semibold text-indigo-800 bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.5 mt-1 inline-block truncate max-w-full"
+                                  title={`${recs.furtherSchoolRecommendations.targetType}: ${topMajor?.name || ''}`}
+                                >
+                                  {recs.furtherSchoolRecommendations.targetType}: {topMajor?.name || '-'}
+                                </span>
+                              );
+                            }
+                            const topPtn = recs.ptnRecommendations?.[0];
+                            const topProdi = recs.universityPrograms?.priority1?.[0];
+                            return (
+                              <span
+                                className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5 mt-1 inline-block truncate max-w-full"
+                                title={`${topProdi || ''} • ${topPtn?.universityName || ''}`}
+                              >
+                                {topPtn?.shortName ? `${topPtn.shortName}: ` : ''}{topProdi || '-'}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="py-3.5 px-4">
                           <button
@@ -787,7 +816,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           )}
                         </td>
                         <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-800">{sess.answeredCount} / 120 Soal</div>
+                          <div className="font-bold text-slate-800">
+                            {sess.answeredCount} / {getQuestionsForLevel(sess.educationLevel || 'SMA').length} Soal
+                          </div>
                           <div className="text-[10px] text-slate-500">
                             Sesi {(sess.currentSessionIndex ?? 0) + 1} • Soal #{sess.currentQuestionId || 1}
                           </div>
@@ -864,7 +895,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Daftar Akun Siswa (SD, SMP & SMA)</h2>
+              <h2 className="text-base font-bold text-slate-900">Daftar Akun Siswa (SD, SMP & SMA/SMK)</h2>
               <p className="text-xs text-slate-500">
                 Admin dapat mendaftarkan siswa secara langsung agar dapat segera memulai tes
               </p>
@@ -1006,9 +1037,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </>
                       ) : (
                         <>
-                          <option value="X (Sepuluh)">Kelas X (Sepuluh)</option>
-                          <option value="XI (Sebelas)">Kelas XI (Sebelas)</option>
-                          <option value="XII (Dua Belas)">Kelas XII (Dua Belas)</option>
+                          <option value="X (Sepuluh)">Kelas X SMA/MA</option>
+                          <option value="XI (Sebelas)">Kelas XI SMA/MA</option>
+                          <option value="XII (Dua Belas)">Kelas XII SMA/MA</option>
+                          <option value="X SMK">Kelas X SMK</option>
+                          <option value="XI SMK">Kelas XI SMK</option>
+                          <option value="XII SMK">Kelas XII SMK</option>
                           <option value="Alumni / Persiapan PTN">Alumni / GAP Year</option>
                         </>
                       )}

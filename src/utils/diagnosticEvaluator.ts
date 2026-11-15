@@ -1,11 +1,611 @@
 import { getQuestionsForLevel } from '../data/diagnosticQuestions';
 import {
   BrainAnalysis,
+  EducationLevel,
+  FurtherSchoolMajor,
+  FurtherSchoolRecommendation,
   MultipleIntelligenceScores,
   PsychologyTrends,
+  PtnRecommendation,
   TestResult,
   TestSubmission,
 } from '../types';
+
+type ClusterKey = 'techEng' | 'medBio' | 'soshumBiz' | 'artsComm';
+
+interface ClusterScores {
+  techEng: number;
+  medBio: number;
+  soshumBiz: number;
+  artsComm: number;
+  vocationalBias: number; // positive leans SMK / D4 Terapan, lower leans SMA / S1 Akademik
+  regionPref: 'A' | 'B' | 'C' | 'D';
+}
+
+function computeClusterScores(
+  level: EducationLevel,
+  mi: MultipleIntelligenceScores,
+  sessionScores: { numerik: number; verbal: number; silogisme: number; spasial: number },
+  answers: Record<number, string>,
+  schoolOrigin = '',
+  grade = ''
+): ClusterScores {
+  let countA = 0;
+  let countB = 0;
+  let countC = 0;
+  let countD = 0;
+
+  for (let id = 121; id <= 130; id++) {
+    const ans = (answers[id] || '').trim().toUpperCase();
+    if (ans === 'A') countA += 1;
+    else if (ans === 'B') countB += 1;
+    else if (ans === 'C') countC += 1;
+    else if (ans === 'D') countD += 1;
+  }
+
+  // Combine Sesi 6 analytical picks + Sesi 5 MI + Sesi 1-4 objective cognitive scores
+  const techEng =
+    countA * 9.5 +
+    mi.logikaMatematika * 0.45 +
+    mi.visualRuang * 0.25 +
+    sessionScores.numerik * 1.6 +
+    sessionScores.spasial * 1.1;
+
+  const medBio =
+    countB * 9.5 +
+    mi.naturalis * 0.45 +
+    mi.logikaMatematika * 0.25 +
+    mi.intrapersonal * 0.15 +
+    sessionScores.silogisme * 1.4;
+
+  const soshumBiz =
+    countC * 9.5 +
+    mi.bahasa * 0.35 +
+    mi.interpersonal * 0.35 +
+    mi.intrapersonal * 0.2 +
+    sessionScores.verbal * 1.6;
+
+  const artsComm =
+    countD * 9.5 +
+    mi.visualRuang * 0.32 +
+    mi.musikal * 0.22 +
+    mi.kinestetis * 0.22 +
+    mi.bahasa * 0.18 +
+    sessionScores.spasial * 1.1;
+
+  // Determine Vocational / Applied vs Academic bias
+  let vocationalBias = (mi.kinestetis - mi.logikaMatematika * 0.65) * 0.4;
+  if (level === 'SD') {
+    if ((answers[125] || '').toUpperCase() === 'B') vocationalBias += 12;
+    if ((answers[130] || '').toUpperCase() === 'D') vocationalBias += 22;
+    if ((answers[130] || '').toUpperCase() === 'A') vocationalBias -= 12;
+  } else if (level === 'SMP') {
+    if ((answers[121] || '').toUpperCase() === 'D') vocationalBias += 22;
+    if ((answers[125] || '').toUpperCase() === 'D') vocationalBias += 15;
+    if ((answers[126] || '').toUpperCase() === 'D') vocationalBias += 18;
+    if ((answers[127] || '').toUpperCase() === 'D') vocationalBias += 18;
+    if ((answers[121] || '').toUpperCase() === 'A') vocationalBias -= 14;
+    if ((answers[126] || '').toUpperCase() === 'A') vocationalBias -= 12;
+  } else {
+    if ((answers[123] || '').toUpperCase() === 'D') vocationalBias += 16;
+    if ((answers[124] || '').toUpperCase() === 'D') vocationalBias += 20;
+    if ((answers[126] || '').toUpperCase() === 'D') vocationalBias += 16;
+    if (/smk/i.test(schoolOrigin) || /smk/i.test(grade)) vocationalBias += 14;
+  }
+
+  const rawReg = (answers[127] || 'D').trim().toUpperCase();
+  const regionPref: 'A' | 'B' | 'C' | 'D' =
+    rawReg === 'A' || rawReg === 'B' || rawReg === 'C' ? rawReg : 'D';
+
+  return { techEng, medBio, soshumBiz, artsComm, vocationalBias, regionPref };
+}
+
+function rankClusters(scores: ClusterScores): ClusterKey[] {
+  const pairs: { key: ClusterKey; val: number }[] = [
+    { key: 'techEng', val: scores.techEng },
+    { key: 'medBio', val: scores.medBio },
+    { key: 'soshumBiz', val: scores.soshumBiz },
+    { key: 'artsComm', val: scores.artsComm },
+  ];
+  pairs.sort((a, b) => b.val - a.val);
+  return pairs.map((p) => p.key);
+}
+
+function buildFurtherSchoolRecommendation(
+  level: EducationLevel,
+  ranked: ClusterKey[],
+  scores: ClusterScores,
+  iqScore: number,
+  pdsScore: number
+): FurtherSchoolRecommendation {
+  const primary = ranked[0];
+  const secondary = ranked[1];
+  const isVocationalStrong = scores.vocationalBias >= 16;
+  const isAcademicStrong = scores.vocationalBias <= -6;
+
+  const targetType: FurtherSchoolRecommendation['targetType'] = isVocationalStrong
+    ? 'SMK'
+    : isAcademicStrong
+    ? 'SMA'
+    : 'SMA / SMK';
+
+  const baseMatch = Math.min(97.5, Math.max(82.0, Math.round((pdsScore * 0.55 + iqScore * 0.35) * 10) / 10));
+
+  const majorCatalog: Record<ClusterKey, FurtherSchoolMajor[]> = {
+    techEng: [
+      {
+        name: 'SMA Peminatan MIPA Lanjut (Matematika, Fisika & Informatika)',
+        schoolType: 'SMA',
+        matchScore: isVocationalStrong ? baseMatch - 2.5 : baseMatch,
+        reason: 'Kuat pada logika matematika, penalaran spasial, dan minat pemodelan sains/rekayasa sebagai jalur utama menuju FT/STEI PTN.',
+      },
+      {
+        name: 'SMK Jurusan Rekayasa Perangkat Lunak (RPL / PPLG)',
+        schoolType: 'SMK',
+        matchScore: isVocationalStrong ? baseMatch : baseMatch - 1.8,
+        reason: 'Cocok untuk membangun keahlian praktis pemrograman, pengembangan aplikasi/gim, dan portofolio IT siap kuliah maupun kerja.',
+      },
+      {
+        name: 'SMK Jurusan Teknik Jaringan Komputer & Telekomunikasi (TJKT)',
+        schoolType: 'SMK',
+        matchScore: baseMatch - 3.4,
+        reason: 'Memadukan ketelitian logis dan eksplorasi perangkat keras jaringan, server, serta infrastruktur teknologi.',
+      },
+      {
+        name: 'SMK Jurusan Teknik Elektronika / Mekatronika & Robotika',
+        schoolType: 'SMK',
+        matchScore: baseMatch - 4.8,
+        reason: 'Ideal bagi pembelajar kinestetis-logis yang gemar merakit sensor, kendali otomatis, dan sistem rekayasa.',
+      },
+    ],
+    medBio: [
+      {
+        name: 'SMA Peminatan MIPA (Fokus Biologi, Kimia & Riset Sains Hayati)',
+        schoolType: 'SMA',
+        matchScore: isVocationalStrong ? baseMatch - 2.1 : baseMatch,
+        reason: 'Menyiapkan fondasi akademik terkuat untuk seleksi SNBP/SNBT menuju Kedokteran, Farmasi, Kedokteran Gigi, dan Bioteknologi.',
+      },
+      {
+        name: 'SMK Jurusan Farmasi Klinis & Komunitas',
+        schoolType: 'SMK',
+        matchScore: isVocationalStrong ? baseMatch : baseMatch - 2.0,
+        reason: 'Memberikan praktik langsung formulasi obat, kimia terapan, serta pelayanan kefarmasian sejak bangku sekolah menengah.',
+      },
+      {
+        name: 'SMK Jurusan Layanan Penunjang Keperawatan & Caregiving',
+        schoolType: 'SMK',
+        matchScore: baseMatch - 3.6,
+        reason: 'Selaras dengan kepedulian sosial, kecerdasan naturalis, dan ketekunan dalam bidang pelayanan kesehatan.',
+      },
+      {
+        name: 'MA / SMA Plus Program Riset Sains Alam & Kesehatan Lingkungan',
+        schoolType: 'MA',
+        matchScore: baseMatch - 4.9,
+        reason: 'Mendukung pengembangan karya ilmiah remaja (KIR) di bidang biologi, ekologi, dan ketahanan hayati.',
+      },
+    ],
+    soshumBiz: [
+      {
+        name: 'SMA Peminatan IPS (Ekonomi, Sosiologi, Geografi & Antropologi)',
+        schoolType: 'SMA',
+        matchScore: isVocationalStrong ? baseMatch - 2.2 : baseMatch,
+        reason: 'Jalur optimal untuk mengasah analisis ekonomi makro, tata hukum, manajemen, dan komunikasi menuju PTN rumpun Soshum.',
+      },
+      {
+        name: 'SMK Jurusan Akuntansi & Keuangan Lembaga (AKL)',
+        schoolType: 'SMK',
+        matchScore: isVocationalStrong ? baseMatch : baseMatch - 1.9,
+        reason: 'Cocok bagi siswa teliti dengan kecenderungan logika-verbal yang siap menguasai pembukuan, perpajakan, dan audit keuangan.',
+      },
+      {
+        name: 'SMK Jurusan Bisnis Digital & Pemasaran (BDP)',
+        schoolType: 'SMK',
+        matchScore: baseMatch - 3.1,
+        reason: 'Memadukan kecerdasan interpersonal, bahasa persuasif, dan strategi kewirausahaan era ekonomi digital.',
+      },
+      {
+        name: 'SMK Jurusan Manajemen Perkantoran & Layanan Bisnis (MPLB)',
+        schoolType: 'SMK',
+        matchScore: baseMatch - 4.5,
+        reason: 'Mengembangkan keterampilan organisasi, administrasi modern, korespondensi bisnis, dan kepemimpinan tim.',
+      },
+    ],
+    artsComm: [
+      {
+        name: 'SMK Jurusan Desain Komunikasi Visual (DKV) & Multimedia',
+        schoolType: 'SMK',
+        matchScore: isVocationalStrong ? baseMatch : baseMatch - 1.2,
+        reason: 'Menyalurkan kecerdasan visual-ruang, imajinasi desain grafis, ilustrasi digital, dan produksi media kreatif secara langsung.',
+      },
+      {
+        name: 'SMA Peminatan Bahasa, Budaya, Komunikasi & Seni',
+        schoolType: 'SMA',
+        matchScore: isVocationalStrong ? baseMatch - 2.6 : baseMatch,
+        reason: 'Membuka jalan kuat menuju Program Studi Ilmu Komunikasi, Psikologi, Hubungan Internasional, Arsitektur, dan Sastra.',
+      },
+      {
+        name: 'SMK Jurusan Animasi / Broadcasting & Perfilman',
+        schoolType: 'SMK',
+        matchScore: baseMatch - 3.2,
+        reason: 'Mendukung bakat visual, musikal, dan penceritaan (storytelling) menjadi portofolio karya kreatif bernilai tinggi.',
+      },
+      {
+        name: 'SMA Peminatan IPS-Kreatif & Desain Arsitektur Dasar',
+        schoolType: 'SMA',
+        matchScore: baseMatch - 4.7,
+        reason: 'Menyeimbangkan analisis sosial-humaniora dengan kepekaan estetika ruang untuk persiapan fakultas seni/desain atau sosial.',
+      },
+    ],
+  };
+
+  // Pick top 2 from primary cluster and top 2 from secondary cluster (adjusted for schoolType balance)
+  const primaryList = majorCatalog[primary];
+  const secondaryList = majorCatalog[secondary];
+
+  const selected: FurtherSchoolMajor[] = [
+    primaryList[0],
+    primaryList[1],
+    {
+      ...secondaryList[0],
+      matchScore: Math.round((secondaryList[0].matchScore - 3.8) * 10) / 10,
+    },
+    primaryList[2],
+  ].sort((a, b) => b.matchScore - a.matchScore);
+
+  const trackLabelMap: Record<ClusterKey, string> = {
+    techEng: 'Sains, Teknik & Teknologi Informasi (SMA MIPA Informatika / SMK RPL-TJKT)',
+    medBio: 'Ilmu Hayati, Sains Alam & Kesehatan (SMA MIPA Biologi-Kimia / SMK Farmasi-Kesehatan)',
+    soshumBiz: 'Ekonomi, Bisnis, Hukum & Humaniora (SMA IPS-Ekonomi / SMK Akuntansi-Bisnis Digital)',
+    artsComm: 'Desain Kreatif, Komunikasi & Bahasa (SMA Bahasa-Komunikasi / SMK DKV-Multimedia)',
+  };
+
+  const smpBridgeMap: Record<ClusterKey, string> = {
+    techEng:
+      'Persiapan Jenjang SMP/MTs: Disarankan aktif di kelas Matematika-IPA, Klub Coding/Informatika, atau Ekskul Robotika untuk memperkuat fondasi logika sebelum memilih SMA MIPA atau SMK RPL/TJKT.',
+    medBio:
+      'Persiapan Jenjang SMP/MTs: Disarankan mengikuti Kelompok Ilmiah Remaja (KIR IPA), Palang Merah Remaja (PMR), dan pembiasaan praktikum Biologi-Kimia sebelum memilih SMA MIPA Kesehatan atau SMK Farmasi.',
+    soshumBiz:
+      'Persiapan Jenjang SMP/MTs: Disarankan aktif dalam OSIS/Pramuka Kepemimpinan, Klub Debat/Bahasa, dan proyek kewirausahaan koperasi siswa sebelum masuk SMA IPS atau SMK Akuntansi/Bisnis Digital.',
+    artsComm:
+      'Persiapan Jenjang SMP/MTs: Disarankan mengikuti Ekskul Desain Grafis, Jurnalistik, Seni Rupa, atau Broadcasting untuk membangun portofolio awal sebelum memilih SMK DKV/Multimedia atau SMA Bahasa.',
+  };
+
+  return {
+    targetType,
+    primaryTrack: trackLabelMap[primary],
+    specificMajors: selected.map((m) => ({
+      ...m,
+      matchScore: Math.round(Math.min(98.5, Math.max(74.0, m.matchScore)) * 10) / 10,
+    })),
+    ...(level === 'SD' ? { smpBridgeNote: smpBridgeMap[primary] } : {}),
+  };
+}
+
+function buildSmaUniversityAndPtnRecommendations(
+  ranked: ClusterKey[],
+  scores: ClusterScores,
+  iqScore: number,
+  pdsScore: number
+): {
+  universityPrograms: NonNullable<PsychologyTrends['universityPrograms']>;
+  ptnRecommendations: PtnRecommendation[];
+} {
+  const primary = ranked[0];
+  const secondary = ranked[1];
+  const isApplied = scores.vocationalBias >= 16;
+
+  const programBank: Record<ClusterKey, string[]> = {
+    techEng: [
+      'Teknik Informatika & Ilmu Komputer',
+      'Sistem Informasi & Rekayasa Perangkat Lunak',
+      'Sains Data (Data Science) & Kecerdasan Buatan (AI)',
+      'Teknik Elektro & Teknik Biomedis',
+      'Teknik Industri & Manajemen Rekayasa',
+      'Teknik Sipil & Perencanaan Wilayah Kota (PWK)',
+      'Statistika & Sains Aktuaria',
+    ],
+    medBio: [
+      'Pendidikan Dokter (Kedokteran)',
+      'Farmasi & Farmasi Klinis',
+      'Pendidikan Dokter Gigi',
+      'Ilmu Gizi & Kesehatan Masyarakat',
+      'Bioteknologi & Biologi Terapan',
+      'Ilmu Keperawatan',
+      'Teknologi Pangan & Agroindustri',
+    ],
+    soshumBiz: [
+      'Akuntansi & Keuangan',
+      'Manajemen & Bisnis Digital',
+      'Ilmu Ekonomi & Pembangunan',
+      'Ilmu Hukum & Hukum Bisnis',
+      'Administrasi Bisnis / Administrasi Publik',
+      'Hubungan Internasional',
+      'Ekonomi Syariah / Perpajakan',
+    ],
+    artsComm: [
+      'Desain Komunikasi Visual (DKV)',
+      'Ilmu Komunikasi & Hubungan Masyarakat',
+      'Ilmu Psikologi',
+      'Arsitektur & Desain Interior',
+      'Desain Produk & Teknologi Kreatif',
+      'Sastra Inggris / Linguistik Terapan',
+      'Manajemen Industri Media & Perfilman',
+    ],
+  };
+
+  const appliedInterdisciplinary: string[] = isApplied
+    ? [
+        'D4 Teknologi Rekayasa Perangkat Lunak / Internet (Vokasi)',
+        'D4 Desain Media Digital & Animasi',
+        'D4 Akuntansi Sektor Publik & Bisnis Terapan',
+        'D4 Teknologi Rekayasa Instrumentasi & Kontrol',
+        'Manajemen Logistik & Rantai Pasok Industri',
+      ]
+    : [
+        'Sains Data & Analitika Bisnis (Interdisipliner)',
+        'Teknologi Pangan & Bioentrepreneurship',
+        'Arsitektur Lanskap & Keberlanjutan Kota',
+        'Manajemen Inovasi & Kewirausahaan Teknologi',
+      ];
+
+  const universityPrograms = {
+    priority1: programBank[primary],
+    priority2: programBank[secondary],
+    priority3: appliedInterdisciplinary,
+  };
+
+  // Curated Indonesian PTNs per cluster + region affinity
+  const allPtnPool: (PtnRecommendation & { cluster: ClusterKey; region: 'A' | 'B' | 'C'; isVocational?: boolean })[] = [
+    // Tech & Engineering
+    {
+      cluster: 'techEng',
+      region: 'A',
+      universityName: 'Institut Teknologi Bandung (ITB)',
+      shortName: 'ITB',
+      location: 'Bandung, Jawa Barat',
+      focusCluster: 'STEI-K, Teknik Elektro, Teknik Industri & Rekayasa',
+      matchedPrograms: ['Teknik Informatika (STEI-K)', 'Teknik Elektro', 'Teknik Industri'],
+      admissionPathHint: 'SNBP / SNBT UTBK & Seleksi Mandiri ITB — Cocok dengan skor analitik-spasial kuat.',
+    },
+    {
+      cluster: 'techEng',
+      region: 'A',
+      universityName: 'Universitas Indonesia (UI)',
+      shortName: 'UI',
+      location: 'Depok / Jakarta',
+      focusCluster: 'Ilmu Komputer, Sistem Informasi & Teknik Modern',
+      matchedPrograms: ['Ilmu Komputer (Fasilkom)', 'Sistem Informasi', 'Teknik Industri'],
+      admissionPathHint: 'SNBP / SNBT & SIMAK UI — Unggul bagi pemikir logis dengan komunikasi verbal baik.',
+    },
+    {
+      cluster: 'techEng',
+      region: 'C',
+      universityName: 'Institut Teknologi Sepuluh Nopember (ITS)',
+      shortName: 'ITS',
+      location: 'Surabaya, Jawa Timur',
+      focusCluster: 'Teknologi Informasi, Robotika, Teknik Sipil & Kelautan',
+      matchedPrograms: ['Teknik Informatika', 'Sistem Informasi', 'Teknik Elektro / Robotika'],
+      admissionPathHint: 'SNBP / SNBT & Seleksi Prestasi/Mandiri ITS — Ekosistem inovasi teknologi & hackathon kuat.',
+    },
+    {
+      cluster: 'techEng',
+      region: 'B',
+      universityName: 'Universitas Gadjah Mada (UGM)',
+      shortName: 'UGM',
+      location: 'Yogyakarta, DIY',
+      focusCluster: 'Ilmu Komputer, Statistika, Teknik & Sekolah Vokasi',
+      matchedPrograms: ['Ilmu Komputer (FMIPA)', 'Teknologi Informasi (FT)', 'Statistika / Aktuaria'],
+      admissionPathHint: 'SNBP / SNBT & UM UGM (CBT) — Tersedia jalur S1 Akademik dan D4 Sekolah Vokasi.',
+    },
+    {
+      cluster: 'techEng',
+      region: 'C',
+      universityName: 'Politeknik Elektronika Negeri Surabaya (PENS)',
+      shortName: 'PENS',
+      location: 'Surabaya, Jawa Timur',
+      focusCluster: 'Politeknik Terbaik Bidang IT, Robotika & Rekayasa Terapan',
+      matchedPrograms: ['D4 Teknik Informatika', 'D4 Teknik Elektronika / Mekatronika', 'D4 Sains Data Terapan'],
+      admissionPathHint: 'SNBP / SNBT Vokasi & Mandiri PENS — Sangat ideal bagi gaya belajar kinestetis-praktik.',
+      isVocational: true,
+    },
+
+    // Med & Bio
+    {
+      cluster: 'medBio',
+      region: 'A',
+      universityName: 'Universitas Indonesia (UI)',
+      shortName: 'UI',
+      location: 'Depok / Salemba, Jakarta',
+      focusCluster: 'Rumpun Ilmu Kesehatan (FK, FKG, Farmasi, FKM)',
+      matchedPrograms: ['Pendidikan Dokter (FK UI)', 'Farmasi', 'Kesehatan Masyarakat / Gizi'],
+      admissionPathHint: 'SNBP / SNBT & SIMAK UI — Memerlukan ketahanan belajar biologi-kimia & penalaran tinggi.',
+    },
+    {
+      cluster: 'medBio',
+      region: 'B',
+      universityName: 'Universitas Gadjah Mada (UGM)',
+      shortName: 'UGM',
+      location: 'Yogyakarta, DIY',
+      focusCluster: 'Kedokteran, Farmasi Klinis, Kedokteran Gigi & Biologi',
+      matchedPrograms: ['Kedokteran (FKKMK)', 'Farmasi', 'Ilmu Gizi Kesehatan'],
+      admissionPathHint: 'SNBP / SNBT & UM UGM — Riset klinis & pengabdian kesehatan masyarakat bertaraf nasional.',
+    },
+    {
+      cluster: 'medBio',
+      region: 'C',
+      universityName: 'Universitas Airlangga (UNAIR)',
+      shortName: 'UNAIR',
+      location: 'Surabaya, Jawa Timur',
+      focusCluster: 'Pusat Unggulan Kedokteran, Farmasi & Ilmu Hayati Timur Indonesia',
+      matchedPrograms: ['Kedokteran', 'Farmasi', 'Kesehatan Masyarakat / Bioteknologi'],
+      admissionPathHint: 'SNBP / SNBT & Seleksi Mandiri UNAIR — Jejaring rumah sakit pendidikan utama yang sangat kuat.',
+    },
+    {
+      cluster: 'medBio',
+      region: 'A',
+      universityName: 'IPB University (Institut Pertanian Bogor)',
+      shortName: 'IPB',
+      location: 'Bogor, Jawa Barat',
+      focusCluster: 'Biosains, Teknologi Pangan, Ilmu Gizi & Kedokteran Hewan/FK',
+      matchedPrograms: ['Ilmu Gizi', 'Teknologi Pangan', 'Biokimia / Kedokteran IPB'],
+      admissionPathHint: 'SNBP / SNBT & Jalur Ketua OSIS / Talenta IPB — Cocok dengan kecerdasan naturalis tinggi.',
+    },
+    {
+      cluster: 'medBio',
+      region: 'A',
+      universityName: 'Universitas Padjadjaran (UNPAD)',
+      shortName: 'UNPAD',
+      location: 'Jatinangor / Bandung, Jawa Barat',
+      focusCluster: 'Kedokteran, Farmasi, Keperawatan & Psikologi Klinis',
+      matchedPrograms: ['Pendidikan Dokter', 'Farmasi', 'Ilmu Keperawatan'],
+      admissionPathHint: 'SNBP / SNBT & SMUP UNPAD — Kurikulum terintegrasi di kawasan kampus terpadu.',
+    },
+
+    // Soshum & Biz
+    {
+      cluster: 'soshumBiz',
+      region: 'A',
+      universityName: 'Universitas Indonesia (UI)',
+      shortName: 'UI',
+      location: 'Depok, Jawa Barat',
+      focusCluster: 'FEB UI, Fakultas Hukum & FISIP Unggulan Nasional',
+      matchedPrograms: ['Akuntansi / Manajemen (FEB)', 'Ilmu Hukum (FH)', 'Hubungan Internasional'],
+      admissionPathHint: 'SNBP / SNBT & SIMAK UI — Peluang magang korporasi & lembaga kebijakan nasional luas.',
+    },
+    {
+      cluster: 'soshumBiz',
+      region: 'B',
+      universityName: 'Universitas Gadjah Mada (UGM)',
+      shortName: 'UGM',
+      location: 'Yogyakarta, DIY',
+      focusCluster: 'Ekonomi & Bisnis, Hukum, Administrasi Publik & Politik',
+      matchedPrograms: ['Manajemen / Akuntansi (FEB)', 'Ilmu Hukum', 'Manajemen & Kebijakan Publik'],
+      admissionPathHint: 'SNBP / SNBT & UM UGM — Tersedia juga jalur Sarjana Terapan Pengelolaan Bisnis & Perbankan.',
+    },
+    {
+      cluster: 'soshumBiz',
+      region: 'B',
+      universityName: 'Universitas Diponegoro (UNDIP)',
+      shortName: 'UNDIP',
+      location: 'Semarang, Jawa Tengah',
+      focusCluster: 'Ekonomi, Hukum, Administrasi Bisnis & Sekolah Vokasi',
+      matchedPrograms: ['Ilmu Hukum', 'Akuntansi / Ekonomi', 'Administrasi Bisnis'],
+      admissionPathHint: 'SNBP / SNBT & UM UNDIP — Pilihan strategis kompetitif dengan daya tampung Soshum luas.',
+    },
+    {
+      cluster: 'soshumBiz',
+      region: 'C',
+      universityName: 'Universitas Brawijaya (UB)',
+      shortName: 'UB',
+      location: 'Malang, Jawa Timur',
+      focusCluster: 'Ekonomi Bisnis, Administrasi Publik, Hukum & Kewirausahaan',
+      matchedPrograms: ['Administrasi Bisnis / Perpajakan', 'Manajemen', 'Ilmu Hukum'],
+      admissionPathHint: 'SNBP / SNBT & SELMA UB — Kuat pada pengembangan bisnis digital, UMKM, dan kebijakan publik.',
+    },
+    {
+      cluster: 'soshumBiz',
+      region: 'A',
+      universityName: 'Universitas Padjadjaran (UNPAD)',
+      shortName: 'UNPAD',
+      location: 'Bandung / Jatinangor, Jawa Barat',
+      focusCluster: 'Hukum, Ekonomi Bisnis, Hubungan Internasional & Administrasi',
+      matchedPrograms: ['Ilmu Hukum', 'Bisnis Digital / Akuntansi', 'Hubungan Internasional'],
+      admissionPathHint: 'SNBP / SNBT & SMUP UNPAD — Pelopor prodi Bisnis Digital PTN dan unggul di bidang hukum/HI.',
+    },
+
+    // Arts, Comm & Design
+    {
+      cluster: 'artsComm',
+      region: 'A',
+      universityName: 'Institut Teknologi Bandung (ITB - FSRD & SAPPK)',
+      shortName: 'ITB',
+      location: 'Bandung, Jawa Barat',
+      focusCluster: 'Desain Komunikasi Visual, Desain Produk & Arsitektur',
+      matchedPrograms: ['Desain Komunikasi Visual (FSRD)', 'Desain Interior / Produk', 'Arsitektur (SAPPK)'],
+      admissionPathHint: 'SNBP / SNBT (Portofolio Gambar) & Mandiri ITB — Terbaik untuk bakat visual-spasial kreatif.',
+    },
+    {
+      cluster: 'artsComm',
+      region: 'B',
+      universityName: 'Universitas Gadjah Mada (UGM)',
+      shortName: 'UGM',
+      location: 'Yogyakarta, DIY',
+      focusCluster: 'Psikologi, Ilmu Komunikasi, Sastra & Teknik Arsitektur',
+      matchedPrograms: ['Psikologi', 'Ilmu Komunikasi', 'Arsitektur'],
+      admissionPathHint: 'SNBP / SNBT & UM UGM — Menggabungkan kekuatan riset manusia, media komunikasi, dan tata ruang.',
+    },
+    {
+      cluster: 'artsComm',
+      region: 'B',
+      universityName: 'Institut Seni Indonesia (ISI) Yogyakarta',
+      shortName: 'ISI Jogja',
+      location: 'Yogyakarta, DIY',
+      focusCluster: 'DKV, Film & Televisi, Animasi, Seni Murni & Musik',
+      matchedPrograms: ['Desain Komunikasi Visual', 'Film dan Televisi / Animasi', 'Seni Musik / Desain Interior'],
+      admissionPathHint: 'SNBP / SNBT (Portofolio Karya) & PMB Mandiri ISI — Ekosistem industri kreatif & seni paling matang.',
+      isVocational: true,
+    },
+    {
+      cluster: 'artsComm',
+      region: 'A',
+      universityName: 'Universitas Indonesia (UI)',
+      shortName: 'UI',
+      location: 'Depok, Jawa Barat',
+      focusCluster: 'Psikologi, Ilmu Komunikasi, Sastra & Arsitektur',
+      matchedPrograms: ['Psikologi', 'Ilmu Komunikasi', 'Arsitektur / Desain'],
+      admissionPathHint: 'SNBP / SNBT & SIMAK UI — Cocok untuk kemampuan verbal-interpersonal dan wawasan sosial tinggi.',
+    },
+    {
+      cluster: 'artsComm',
+      region: 'A',
+      universityName: 'Politeknik Negeri Media Kreatif / POLBAN',
+      shortName: 'Polimedia / POLBAN',
+      location: 'Jakarta / Bandung',
+      focusCluster: 'Desain Grafis Terapan, Animasi, Penyiaran & Teknik Terapan',
+      matchedPrograms: ['D4 Animasi / Desain Grafis', 'D4 Penyiaran & Produksi Media', 'D4 Teknologi Multimedia'],
+      admissionPathHint: 'SNBP / SNBT Vokasi & Seleksi Mandiri Politeknik — Berbasis portofolio & praktik industri kreatif.',
+      isVocational: true,
+    },
+  ];
+
+  // Score each PTN by cluster alignment + regional preference + vocational alignment
+  const scoredPtns = allPtnPool.map((item) => {
+    let rankScore = 0;
+    if (item.cluster === primary) rankScore += 50;
+    else if (item.cluster === secondary) rankScore += 24;
+    if (scores.regionPref !== 'D' && item.region === scores.regionPref) rankScore += 18;
+    if (isApplied && item.isVocational) rankScore += 14;
+    if (!isApplied && !item.isVocational) rankScore += 6;
+    // Slight adjustment by IQ/PDS readiness
+    if (iqScore >= 115 && (item.shortName === 'UI' || item.shortName === 'ITB' || item.shortName === 'UGM')) {
+      rankScore += 5;
+    }
+    if (pdsScore >= 82) rankScore += 2;
+
+    return { item, rankScore };
+  });
+
+  scoredPtns.sort((a, b) => b.rankScore - a.rankScore);
+
+  // Deduplicate by shortName so student gets 5 distinct top PTNs
+  const seen = new Set<string>();
+  const picked: PtnRecommendation[] = [];
+  for (const entry of scoredPtns) {
+    if (seen.has(entry.item.shortName)) continue;
+    seen.add(entry.item.shortName);
+    picked.push({
+      universityName: entry.item.universityName,
+      shortName: entry.item.shortName,
+      location: entry.item.location,
+      focusCluster: entry.item.focusCluster,
+      matchedPrograms: entry.item.matchedPrograms,
+      admissionPathHint: entry.item.admissionPathHint,
+    });
+    if (picked.length >= 5) break;
+  }
+
+  return { universityPrograms, ptnRecommendations: picked };
+}
 
 export function evaluateSubmission(submission: TestSubmission): TestResult {
   const level = submission.educationLevel || 'SMA';
@@ -30,14 +630,13 @@ export function evaluateSubmission(submission: TestSubmission): TestResult {
     }
   });
 
-  // Calculate Standardized IQ Score (Mean 100, SD 15, matching official scale)
-  // Base 75 + (correctCount / 40) * 58 + extra precision. e.g. 29 correct -> 122 (Superior)
+  // Standardized IQ Score (Mean 100, SD 15)
   const iqScore = Math.min(
     155,
     Math.max(70, Math.round(75 + (correctCount / 40) * 58 + correctSesi1 * 0.45))
   );
 
-  // Determine IQ Category
+  // IQ Category
   let iqCategory: TestResult['iqCategory'] = 'Normal';
   let iqCategoryRange = '100-110';
 
@@ -167,7 +766,7 @@ export function evaluateSubmission(submission: TestSubmission): TestResult {
   const leftBrainDominance = Math.round((leftBrainRaw / totalHemisphere) * 10000) / 100;
   const rightBrainDominance = Math.round((100 - leftBrainDominance) * 100) / 100;
 
-  // 5. Personality & Development points (tailored for SD vs SMP vs SMA)
+  // 5. Personality & Development points (SD / SMP / SMA-SMK)
   const personalityTraits =
     level === 'SD'
       ? [
@@ -242,60 +841,107 @@ export function evaluateSubmission(submission: TestSubmission): TestResult {
 
   const recommendedSeating = level === 'SD' ? 'di belakang' : 'di tengah';
 
-  const isSaintek = multipleIntelligences.logikaMatematika >= multipleIntelligences.bahasa;
+  // 6. Analytical Sesi 6 Scoring & Specific Recommendations
+  const sessionScores = {
+    numerik: correctSesi1,
+    verbal: correctSesi2,
+    silogisme: correctSesi3,
+    spasial: correctSesi4,
+  };
+
+  const clusterScores = computeClusterScores(
+    level,
+    multipleIntelligences,
+    sessionScores,
+    answers,
+    submission.schoolOrigin,
+    submission.grade
+  );
+  const rankedClusters = rankClusters(clusterScores);
+  const topCluster = rankedClusters[0];
+
   const competitionRecommendation =
     level === 'SD'
-      ? (isSaintek ? 'IPA / Matematika SD' : 'selain IPA/IPS')
-      : isSaintek
-      ? 'IPA atau Sains dan Teknologi'
-      : 'Sosial Humaniora, Bahasa, atau Seni Kreatif';
+      ? topCluster === 'techEng'
+        ? 'Olimpiade Matematika, Sains (IPA) & Logika/Coding Dasar SD'
+        : topCluster === 'medBio'
+        ? 'Olimpiade IPA, Karya Ilmiah Alam & Kesehatan Lingkungan SD'
+        : topCluster === 'soshumBiz'
+        ? 'Lomba Bercerita, Debat Bahasa, Cerdas Cermat IPS & Wirausaha Cilik'
+        : 'Lomba Menggambar, Poster Digital, Seni Kreatif & Prakarya Visual'
+      : topCluster === 'techEng'
+      ? 'Olimpiade Sains (Matematika/Fisika/Informatika), Robotika & Inovasi Teknologi'
+      : topCluster === 'medBio'
+      ? 'Olimpiade Biologi/Kimia, Karya Ilmiah Remaja (KIR) & Sains Kesehatan'
+      : topCluster === 'soshumBiz'
+      ? 'Olimpiade Ekonomi/IPS, Debat Ilmiah, Karya Tulis Hukum & Kewirausahaan'
+      : 'Kompetisi Desain Komunikasi Visual (DKV), Film Pendek, Arsitektur & Bahasa';
 
   const pdsScore =
     Math.round(
       (Math.max(multipleIntelligences.logikaMatematika, multipleIntelligences.kinestetis, 75) + 4.2) * 10
     ) / 10;
+  const clampedPds = Math.min(98.5, Math.max(72.0, pdsScore));
 
-  const highSchoolMajor = {
-    stream: isSaintek ? 'Sains dan Teknologi (Saintek / MIPA)' : 'Sosial Humaniora (Soshum / IPS)',
-    pdsScore: Math.min(98.5, Math.max(72.0, pdsScore)),
+  const majorStreamByCluster: Record<ClusterKey, string> = {
+    techEng:
+      clusterScores.vocationalBias >= 16
+        ? 'Teknologi Informasi & Rekayasa (SMK RPL/TJKT atau SMA MIPA Informatika)'
+        : 'Sains, Matematika & Rekayasa Teknologi (SMA MIPA Lanjut / Saintek)',
+    medBio:
+      clusterScores.vocationalBias >= 16
+        ? 'Kesehatan & Farmasi Terapan (SMK Farmasi/Keperawatan atau SMA MIPA Bio-Kimia)'
+        : 'Sains Hayati & Kesehatan (SMA MIPA Biologi-Kimia / Saintek Medis)',
+    soshumBiz:
+      clusterScores.vocationalBias >= 16
+        ? 'Bisnis, Akuntansi & Manajemen (SMK AKL/Bisnis Digital atau SMA IPS)'
+        : 'Sosial Humaniora, Ekonomi & Hukum (SMA IPS / Soshum)',
+    artsComm:
+      clusterScores.vocationalBias >= 16
+        ? 'Desain Kreatif & Multimedia (SMK DKV/Animasi atau SMA Bahasa & Seni)'
+        : 'Komunikasi, Psikologi, Bahasa & Desain (SMA Bahasa/IPS atau SMK DKV)',
   };
 
-  // University programs (Only relevant for SMA)
+  const highSchoolMajor = {
+    stream: majorStreamByCluster[topCluster],
+    pdsScore: clampedPds,
+  };
+
+  const clusterNameReadable: Record<ClusterKey, string> = {
+    techEng: 'Rekayasa, Matematika, Logika Sistem & Teknologi Informasi',
+    medBio: 'Ilmu Hayati, Biologi, Kesehatan & Farmasi',
+    soshumBiz: 'Sosial-Humaniora, Ekonomi, Keuangan, Manajemen & Hukum',
+    artsComm: 'Desain Visual, Komunikasi, Psikologi & Industri Kreatif',
+  };
+
+  const analyticalInterestSummary =
+    level === 'SD'
+      ? `Berdasarkan kombinasi skor kognitif (IQ ${iqScore}), profil 8 Kecerdasan Majemuk, serta analisa minat Sesi 6, kecenderungan utama ${submission.fullName} berada pada klaster ${clusterNameReadable[topCluster]} dengan gaya belajar dominan ${primaryLearnerType}. Pola ini menjadi dasar proyeksi kesiapan SMP serta rekomendasi spesifik SMA/SMK dan jurusannya.`
+      : level === 'SMP'
+      ? `Berdasarkan integrasi kemampuan penalaran (IQ ${iqScore}), kecerdasan majemuk, dominasi belahan otak, dan respons analisa jalur studi Sesi 6, ${submission.fullName} menunjukkan kesiapan terkuat pada bidang ${clusterNameReadable[topCluster]} (kecenderungan ${clusterScores.vocationalBias >= 16 ? 'Praktik Kejuruan / Vokasi SMK' : clusterScores.vocationalBias <= -6 ? 'Akademik Konseptual SMA' : 'Seimbang SMA & SMK Terapan'}).`
+      : `Hasil integrasi tes bakat kognitif (IQ ${iqScore}), PDS (${clampedPds.toFixed(1)}%), 4 Lobus Otak, serta analisa pilihan studi Sesi 6 memetakan ${submission.fullName} paling optimal pada rumpun ${clusterNameReadable[topCluster]} (diikuti klaster ${clusterNameReadable[rankedClusters[1]]}) dengan profil kampus PTN yang sesuai.`;
+
+  let furtherSchoolRecommendations: FurtherSchoolRecommendation | undefined = undefined;
   let universityPrograms: PsychologyTrends['universityPrograms'] = undefined;
-  if (level === 'SMA') {
-    const saintekPrograms = [
-      'Kedokteran & Pendidikan Dokter',
-      'Teknik Informatika & Ilmu Komputer',
-      'Sistem Informasi & Rekayasa Perangkat Lunak',
-      'Teknik Elektro & Mekatronika',
-      'Teknik Sipil & Perencanaan',
-      'Arsitektur & Desain Ruang',
-      'Farmasi & Farmasi Klinis',
-      'Statistika & Sains Aktuaria',
-      'Bioteknologi & Biokimia',
-      'Teknologi Industri & Robotika',
-    ];
-    const soshumPrograms = [
-      'Administrasi Bisnis & Manajemen',
-      'Ilmu Komunikasi & Hubungan Internasional',
-      'Ilmu Psikologi',
-      'Ilmu Hukum & Tata Negara',
-      'Ekonomi Akuntansi & Keuangan Perbankan',
-      'Administrasi Publik & Kebijakan',
-      'Bimbingan dan Konseling',
-      'Pendidikan Bahasa & Sastra',
-      'Desain Komunikasi Visual',
-    ];
-    universityPrograms = {
-      priority1: isSaintek ? saintekPrograms : soshumPrograms,
-      priority2: isSaintek ? soshumPrograms : saintekPrograms,
-      priority3: [
-        'Rekayasa Nanoteknologi & Material',
-        'Sains Data & AI',
-        'Teknologi Pangan',
-        'Manajemen Logistik & Transportasi',
-      ],
-    };
+  let ptnRecommendations: PtnRecommendation[] | undefined = undefined;
+
+  if (level === 'SD' || level === 'SMP') {
+    furtherSchoolRecommendations = buildFurtherSchoolRecommendation(
+      level,
+      rankedClusters,
+      clusterScores,
+      iqScore,
+      clampedPds
+    );
+  } else {
+    const smaRecs = buildSmaUniversityAndPtnRecommendations(
+      rankedClusters,
+      clusterScores,
+      iqScore,
+      clampedPds
+    );
+    universityPrograms = smaRecs.universityPrograms;
+    ptnRecommendations = smaRecs.ptnRecommendations;
   }
 
   const psychologyTrends: PsychologyTrends = {
@@ -313,6 +959,9 @@ export function evaluateSubmission(submission: TestSubmission): TestResult {
     competitionRecommendation,
     highSchoolMajor,
     universityPrograms,
+    furtherSchoolRecommendations,
+    ptnRecommendations,
+    analyticalInterestSummary,
   };
 
   return {
@@ -323,12 +972,7 @@ export function evaluateSubmission(submission: TestSubmission): TestResult {
     schoolOrigin: submission.schoolOrigin,
     grade: submission.grade,
     rawScoreSession1to4: correctCount,
-    sessionScores: {
-      numerik: correctSesi1,
-      verbal: correctSesi2,
-      silogisme: correctSesi3,
-      spasial: correctSesi4,
-    },
+    sessionScores,
     iqScore,
     iqCategory,
     iqCategoryRange,
@@ -340,5 +984,70 @@ export function evaluateSubmission(submission: TestSubmission): TestResult {
     completionStatus: submission.completionStatus || 'completed',
     violationCount: submission.violationCount || 0,
     ...(submission.terminationReason ? { terminationReason: submission.terminationReason } : {}),
+  };
+}
+
+/**
+ * Fallback helper so legacy TestResult records created before Sesi 6 still display
+ * rich SMA/SMK jurusan recommendations (for SD/SMP) or PTN recommendations (for SMA/SMK)
+ * computed cleanly from their existing Multiple Intelligences, IQ, and sessionScores.
+ */
+export function resolveRecommendationsWithFallback(result: TestResult): {
+  analyticalInterestSummary: string;
+  furtherSchoolRecommendations?: FurtherSchoolRecommendation;
+  universityPrograms?: PsychologyTrends['universityPrograms'];
+  ptnRecommendations?: PtnRecommendation[];
+} {
+  const existing = result.psychologyTrends;
+  const level = result.educationLevel || 'SMA';
+  const sessionScores = result.sessionScores || {
+    numerik: Math.round((result.rawScoreSession1to4 || 20) * 0.25),
+    verbal: Math.round((result.rawScoreSession1to4 || 20) * 0.25),
+    silogisme: Math.round((result.rawScoreSession1to4 || 20) * 0.25),
+    spasial: Math.round((result.rawScoreSession1to4 || 20) * 0.25),
+  };
+
+  const fallbackScores = computeClusterScores(
+    level,
+    result.multipleIntelligences,
+    sessionScores,
+    {},
+    result.schoolOrigin,
+    result.grade
+  );
+  const ranked = rankClusters(fallbackScores);
+  const pds = existing.highSchoolMajor?.pdsScore || 80;
+
+  if (level === 'SD' || level === 'SMP') {
+    const furtherSchoolRecommendations =
+      existing.furtherSchoolRecommendations ||
+      buildFurtherSchoolRecommendation(level, ranked, fallbackScores, result.iqScore, pds);
+
+    const analyticalInterestSummary =
+      existing.analyticalInterestSummary ||
+      `Pemetaan potensi ${result.fullName} (IQ ${result.iqScore}, PDS ${pds.toFixed(1)}%) merekomendasikan jalur ${furtherSchoolRecommendations.targetType} dengan fokus ${furtherSchoolRecommendations.primaryTrack}.`;
+
+    return {
+      analyticalInterestSummary,
+      furtherSchoolRecommendations,
+    };
+  }
+
+  const smaFallback = buildSmaUniversityAndPtnRecommendations(
+    ranked,
+    fallbackScores,
+    result.iqScore,
+    pds
+  );
+
+  return {
+    analyticalInterestSummary:
+      existing.analyticalInterestSummary ||
+      `Pemetaan potensi ${result.fullName} (IQ ${result.iqScore}, PDS ${pds.toFixed(1)}%) mengarahkan klaster Program Studi dan Perguruan Tinggi Negeri (PTN) yang selaras dengan dominasi kognitif dan kecerdasan majemuk siswa.`,
+    universityPrograms: existing.universityPrograms || smaFallback.universityPrograms,
+    ptnRecommendations:
+      existing.ptnRecommendations && existing.ptnRecommendations.length > 0
+        ? existing.ptnRecommendations
+        : smaFallback.ptnRecommendations,
   };
 }
